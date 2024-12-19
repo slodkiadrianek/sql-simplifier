@@ -1,0 +1,30 @@
+{
+  "name": "sql-simplifier",
+  "version": "1.0.0",
+  "description": "",
+  "main": "app.js",
+  "scripts": {
+    "start": "node ./build/app.js",
+    "build": "tsc",
+    "dev": "npx tsx watch ./src/app.ts",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/slodkiadrianek/sql-simplifier.git"
+  },
+  "keywords": [],
+  "author": "Adrian Kurek",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/slodkiadrianek/sql-simplifier/issues"
+  },
+  "homepage": "https://github.com/slodkiadrianek/sql-simplifier#readme",
+  "devDependencies": {
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  },
+  "dependencies": {
+    "@types/node": "^22.10.2"
+  }
+}

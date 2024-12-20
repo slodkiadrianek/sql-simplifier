@@ -1,5 +1,4 @@
 'use strict'
-import { count } from "node:console";
 import { DatabaseSync } from "node:sqlite"
 
 export const tableOptions = {
@@ -25,7 +24,7 @@ export const dataTypes = {
     "DATETIME": "DATETIME",
     "TXT":"TEXT",
     setVarchar(length: number): string {
-        return `VARCHAR(${length})`
+        return `VARCHAR(50)`
     }
 }
 class SqlSimplifier{
@@ -38,10 +37,13 @@ class SqlSimplifier{
     insertData(tableName:string, dataProvided:{[key:string]:string | number | boolean}){
         const columns:Array<string> = Object.keys(dataProvided);
         const values:Array<string | number | boolean> = Object.values(dataProvided);
+        const vlauesWithExpectedTypes = {
+            
+        }
+        this.typeChecking(tableName, values)
         const columnString = columns.join(', ');
         console.log(values);
         let valueString = values.map((value) => { 
-
             if (typeof value === 'string') {
                 return `'${value}'`;
             }else{
@@ -49,7 +51,7 @@ class SqlSimplifier{
             }
         })
         console.log(valueString);
-        let query  = `INSERT INTO ${tableName}(${columnString}) VALUES(${valueString.join(',')})`;
+        let query  = `INSERT INTO ${tableName}(${columnString}) VALUES(${valueString.join(', ')});`;
         console.log(query);
         const prepared = this.sourceDb.prepare(query);
         prepared.run();
@@ -60,7 +62,6 @@ class SqlSimplifier{
             if(availableColumns.includes(columnName) && columnValues ){
                 matchingColumns.push(columnName)
             }
-
         }
         return matchingColumns;
     }
@@ -82,6 +83,20 @@ class SqlSimplifier{
         const selectQuery = `${distinctColumn !== '' ? distinctColumn + ',' : ''}  ${countColumnsString !== '' ? countColumnsString + ',' : '' } ${commonColumns}`
         return selectQuery
     }
+    private typeChecking(value:string | boolean | number, expectedType:unknown){
+        switch (expectedType) {
+            case "INT":
+                return Number.isInteger(value);
+            case "FLOAT":
+                return typeof value === "number";
+              case "BOOL":
+                return typeof value === "boolean";
+              case "DATETIME":
+                return typeof value === "string" && !isNaN(Date.parse(value));
+              case "TXT":
+                return typeof value === "string";
+        }
+    }
 
     findOne(tableName:string, data:{ [key: string]: boolean | { [key: string]: boolean } }){
         // const selectQuery = this.select(tableName, data);
@@ -91,12 +106,14 @@ class SqlSimplifier{
         return result
     }
 
-    createTable(tableName:string, columns:{[key:string] : string}):object{
+    createTable(tableName:string, columns:{[key:string] : {[key:string] : string}}):object{
         let query:string =`CREATE TABLE IF NOT EXISTS ${tableName} (`
         for(const [columnName, columnProperties] of Object.entries(columns)){
-            query+=columnName + ' ' + columnProperties + ', '
+            query+=columnName + ' ' + columnProperties.type + ' '  +    columnProperties.tableOptions    + ', '
         }
+
         query = query.slice(0, -2) + ')';
+        console.log(query);
         this.sourceDb.exec(query);
           this[tableName] = {
             columns:{
@@ -109,26 +126,41 @@ class SqlSimplifier{
     }
 
      showTableSchema(tableName:string):void{
-        const tableInfoQuery = `PRAGMA table_info(${tableName})`;
+        const tableInfoQuery = `
+        PRAGMA table_info(${tableName})
+        `;
         const result = this.sourceDb.prepare(tableInfoQuery);
         console.table(result.all());
     }
 
 }
-const db = new SqlSimplifier('../db.sqlite');
+const db = new SqlSimplifier('../database.sqlite');
 db.createTable("Ludzie",{
-    id: `${dataTypes.INT} ${tableOptions.PK} ${tableOptions.AI} `,
-    imie: `${dataTypes.setVarchar(50)} ${tableOptions.NN}`,
-    nazwisko: `${dataTypes.setVarchar(50)} ${tableOptions.NN} ${tableOptions.setDefault('Kowalski')}`,
-    age: `${dataTypes.INT} ${tableOptions.NN}`,
+    id:{
+        type: dataTypes.INT,
+        tableOptions: ` ${tableOptions.PK} ${tableOptions.AI}`,
+    },
+    name:{
+        type : dataTypes.TXT,
+        tableOptions: `${tableOptions.NN}`,
+
+    },
+    surname: {
+        type: dataTypes.TXT,
+        tableOptions: `${tableOptions.NN}`,
+    },
+    age: {
+        type: dataTypes.INT,
+        tableOptions: `${tableOptions.NN} ${tableOptions.setDefault(18)}`
+    }
 
 })
 console.time("add");
 
 db.showTableSchema("Ludzie")
 db['Ludzie'].insertData({
-    imie: 'Adam',
-    nazwisko: 'Marczyk',
+    name: 20,
+    surname: 'Kowalski',
     age: 20
 })
 const data =  db["Ludzie"].find()

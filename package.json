@@ -13,7 +13,9 @@
     "type": "git",
     "url": "git+https://github.com/slodkiadrianek/sql-simplifier.git"
   },
-  "keywords": [],
+  "keywords": [
+    "sql-simplifier"
+  ],
   "author": "Adrian Kurek",
   "license": "MIT",
   "bugs": {

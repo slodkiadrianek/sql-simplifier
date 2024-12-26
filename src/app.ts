@@ -61,7 +61,7 @@ class SqlSimplifier {
         return Number.isInteger(value);
       case "FLOAT":
         return typeof value === "number";
-      case "BOOL":
+      case "BOOLEAN":
         return typeof value === "boolean";
       case "DATETIME":
         return typeof value === "string" && !isNaN(Date.parse(value));
@@ -72,26 +72,40 @@ class SqlSimplifier {
 
   insertData(
     tableName: string,
-    dataProvided: { [key: string]: string | number | boolean },
+    dataProvided: { [key: string]: string | number }[],
   ): void {
-    for (const [columnName, columnValue] of Object.entries(dataProvided)) {
-      const result = this.typeChecking(
-        columnValue,
-        this[tableName].columns[columnName].type,
-      );
-      if (!result) {
-        console.error(
-          `The value ${columnValue} is not of type ${this[tableName].columns[columnName].type}`,
+    const values: Array<string | number> = [];
+    for (const el of dataProvided) {
+      for (const [columnName, columnValue] of Object.entries(el)) {
+        const result = this.typeChecking(
+          columnValue,
+          this[tableName].columns[columnName].type,
         );
-        console.timeEnd("timeApp");
-        process.exit(1);
+        const rightName = this.invalidColumnNames.includes(columnName);
+        if (rightName) {
+          console.error(`You cannot use the column name ${columnName}`);
+          console.timeEnd("timeApp");
+          process.exit(1);
+        }
+        if (!result) {
+          console.error(
+            `The value ${columnValue} is not of type ${this[tableName].columns[columnName].type}`,
+          );
+          console.timeEnd("timeApp");
+          process.exit(1);
+        }
       }
+
+      values.push(...Object.values(el));
     }
-    const columns: Array<string> = Object.keys(dataProvided);
-    const values: Array<any> = Object.values(dataProvided);
+    const columns: Array<string> = Object.keys(dataProvided[0]);
     const columnString = columns.join(", ");
-    const amountOfColumns = new Array(values.length).fill("?");
-    let query = `INSERT INTO ${tableName}(${columnString}) VALUES(${amountOfColumns.join(", ")});`;
+    const columnsToProvide = [];
+    for (let i = 0; i < dataProvided.length; i++) {
+      columnsToProvide.push(`(${columns.map(() => "?").join(", ")})`);
+    }
+
+    let query = `INSERT INTO ${tableName}(${columnString}) VALUES${columnsToProvide.join(", ")}`;
     const prepared = this.sourceDb.prepare(query);
     prepared.run(...values);
   }
@@ -122,8 +136,6 @@ class SqlSimplifier {
         if ("or" in el) {
           const andQuery = this.buildQueryConditions(el.or);
           resultArray.push(andQuery.join(" OR "));
-        }
-        if ("between" in el) {
         }
         if ("neq" in el) {
           defaultOperator = "!=";
@@ -173,6 +185,22 @@ class SqlSimplifier {
     let columnName: string = data[0];
     const betweenQueryString = ` ${columnName} BETWEEN ${data[1][0]} AND ${data[1][1]} `;
     return betweenQueryString;
+  }
+  private in(data: Array<string & Array<string>>): string {
+    let columnName: string = data[0];
+    const inQueryString = ` ${columnName} IN (${data[1].join(", ")}) `;
+    return inQueryString;
+  }
+  private notIn(data: Array<string & Array<string>>): string {
+    const notInQueryString = this.in(data).replace("IN", "NOT IN");
+    return notInQueryString;
+  }
+  private notBetween(data: Array<string & Array<string>>): string {
+    const notBetweenQueryString = this.between(data).replace(
+      "BETWEEN",
+      "NOT BETWEEN",
+    );
+    return notBetweenQueryString;
   }
   private select(
     tableName: string,
@@ -275,6 +303,27 @@ class SqlSimplifier {
         }
       ).or;
       resultArray.push(this.or(orCondition));
+    } else if ("in" in data.where && typeof data.where === "object") {
+      const inCondition = (
+        data.where as {
+          in: Array<string & Array<string>>;
+        }
+      ).in;
+      resultArray.push(this.in(inCondition));
+    } else if ("notBetween" in data.where && typeof data.where === "object") {
+      const notBetweenCondition = (
+        data.where as {
+          notBetween: Array<string & Array<string>>;
+        }
+      ).notBetween;
+      resultArray.push(this.notBetween(notBetweenCondition));
+    } else if ("notIn" in data.where && typeof data.where === "object") {
+      const notInCondition = (
+        data.where as {
+          notIn: Array<string & Array<string>>;
+        }
+      ).notIn;
+      resultArray.push(this.notIn(notInCondition));
     } else if ("and" in data.where && typeof data.where === "object") {
       const andCondition = (
         data.where as {
@@ -353,7 +402,7 @@ class SqlSimplifier {
 }
 
 const db = new SqlSimplifier("./database.sqlite");
-db.createTable("Ludzie", {
+db.createTable("people", {
   id: {
     type: dataTypes.INT,
     tableOptions: ` ${tableOptions.PK} ${tableOptions.AI}`,
@@ -373,12 +422,22 @@ db.createTable("Ludzie", {
 });
 console.time("timeApp");
 
-db.showTableSchema("Ludzie");
-
-const data2 = db["Ludzie"].find({
-  // age: true,
+db.showTableSchema("people");
+// db["people"].insertData([
+//   {
+//     name: "Michał",
+//     surname: "Żuk",
+//     age: 21,
+//   },
+//   {
+//     name: "Marcin",
+//     surname: "Bombka",
+//     age: 29,
+//   },
+// ]);
+const data2 = db["people"].find({
   where: {
-    name: "Adrian",
+    notIn: ["age", [21, 30]],
   },
 });
 console.table(data2);

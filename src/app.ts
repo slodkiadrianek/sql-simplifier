@@ -1,26 +1,6 @@
 "use strict";
 import { DatabaseSync } from "node:sqlite";
 
-export const tableOptions = {
-  PK: "PRIMARY KEY",
-  AI: "AUTOINCREMENT",
-  NN: "NOT NULL",
-  UQ: "UNIQUE",
-  setForeignKey(
-    columnName: string,
-    foreignTable: string,
-    foreignColumn: string,
-  ): string {
-    return `FOREIGN KEY (${columnName}) REFERENCES ${foreignTable}(${foreignColumn})`;
-  },
-  setDefault(values: string | number): string {
-    return `DEFAULT ${values}`;
-  },
-  setCheck(sqlExpression: string): string {
-    return `CHECK (${sqlExpression})`;
-  },
-};
-
 type InputData = {
   or: Array<
     | { and: Array<{ [key: string]: any }> } // "and" block with an array of conditions
@@ -29,14 +9,7 @@ type InputData = {
   >;
 };
 
-export const dataTypes = {
-  INT: "INTEGER",
-  FLOAT: "FLOAT",
-  BOOL: "BOOLEAN",
-  DATETIME: "DATETIME",
-  TXT: "TEXT",
-};
-class SqlSimplifier {
+export class SqlSimplifier {
   [key: string]: any;
   public invalidColumnNames: string[] = [
     "and",
@@ -51,63 +24,6 @@ class SqlSimplifier {
   private sourceDb: DatabaseSync;
   constructor(public pathToDatabase: string) {
     this.sourceDb = new DatabaseSync(pathToDatabase);
-  }
-  private typeChecking(
-    value: string | boolean | number,
-    expectedType: string,
-  ): boolean | undefined {
-    switch (expectedType) {
-      case "INTEGER":
-        return Number.isInteger(value);
-      case "FLOAT":
-        return typeof value === "number";
-      case "BOOLEAN":
-        return typeof value === "boolean";
-      case "DATETIME":
-        return typeof value === "string" && !isNaN(Date.parse(value));
-      case "TEXT":
-        return typeof value === "string";
-    }
-  }
-
-  insertData(
-    tableName: string,
-    dataProvided: { [key: string]: string | number }[],
-  ): void {
-    const values: Array<string | number> = [];
-    for (const el of dataProvided) {
-      for (const [columnName, columnValue] of Object.entries(el)) {
-        const result = this.typeChecking(
-          columnValue,
-          this[tableName].columns[columnName].type,
-        );
-        const rightName = this.invalidColumnNames.includes(columnName);
-        if (rightName) {
-          console.error(`You cannot use the column name ${columnName}`);
-          console.timeEnd("timeApp");
-          process.exit(1);
-        }
-        if (!result) {
-          console.error(
-            `The value ${columnValue} is not of type ${this[tableName].columns[columnName].type}`,
-          );
-          console.timeEnd("timeApp");
-          process.exit(1);
-        }
-      }
-
-      values.push(...Object.values(el));
-    }
-    const columns: Array<string> = Object.keys(dataProvided[0]);
-    const columnString = columns.join(", ");
-    const columnsToProvide = [];
-    for (let i = 0; i < dataProvided.length; i++) {
-      columnsToProvide.push(`(${columns.map(() => "?").join(", ")})`);
-    }
-
-    let query = `INSERT INTO ${tableName}(${columnString}) VALUES${columnsToProvide.join(", ")}`;
-    const prepared = this.sourceDb.prepare(query);
-    prepared.run(...values);
   }
 
   private findMatchingColumns(
@@ -401,28 +317,28 @@ class SqlSimplifier {
   }
 }
 
-const db = new SqlSimplifier("./database.sqlite");
-db.createTable("people", {
-  id: {
-    type: dataTypes.INT,
-    tableOptions: ` ${tableOptions.PK} ${tableOptions.AI}`,
-  },
-  name: {
-    type: dataTypes.TXT,
-    tableOptions: `${tableOptions.NN}`,
-  },
-  surname: {
-    type: dataTypes.TXT,
-    tableOptions: `${tableOptions.NN}`,
-  },
-  age: {
-    type: dataTypes.INT,
-    tableOptions: `${tableOptions.NN} ${tableOptions.setDefault(18)}`,
-  },
-});
-console.time("timeApp");
+// const db = new SqlSimplifier("./database.sqlite");
+// db.createTable("people", {
+//   id: {
+//     type: dataTypes.INT,
+//     tableOptions: ` ${tableOptions.PK} ${tableOptions.AI}`,
+//   },
+//   name: {
+//     type: dataTypes.TXT,
+//     tableOptions: `${tableOptions.NN}`,
+//   },
+//   surname: {
+//     type: dataTypes.TXT,
+//     tableOptions: `${tableOptions.NN}`,
+//   },
+//   age: {
+//     type: dataTypes.INT,
+//     tableOptions: `${tableOptions.NN} ${tableOptions.setDefault(18)}`,
+//   },
+// });
+// console.time("timeApp");
 
-db.showTableSchema("people");
+// db.showTableSchema("people");
 // db["people"].insertData([
 //   {
 //     name: "Michał",
@@ -435,10 +351,10 @@ db.showTableSchema("people");
 //     age: 29,
 //   },
 // ]);
-const data2 = db["people"].find({
-  where: {
-    notIn: ["age", [21, 30]],
-  },
-});
-console.table(data2);
-console.timeEnd("timeApp");
+// const data2 = db["people"].find({
+//   where: {
+//     notIn: ["age", [21, 30]],
+//   },
+// });
+// console.table(data2);
+// console.timeEnd("timeApp");

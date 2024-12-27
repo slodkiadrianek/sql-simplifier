@@ -28,6 +28,9 @@ console.time("timeApp");
 //   { name: "Jane", surname: "Doe", age: 24 },
 //   { name: "Michał", surname: "Kowalski", age: 30 },
 // ]);
-const data = db["people"].find({});
+const data = db["people"].find({
+  distinct: { name: true },
+  count: { age: true },
+});
 console.table(data);
 console.timeEnd("timeApp");

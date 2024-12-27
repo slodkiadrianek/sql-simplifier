@@ -1,10 +1,15 @@
+import { DataTypesInput, inputData } from "./types/dataTypes";
 import { typesAndOptions } from "./typesAndOptions";
+interface returnInsertData {
+  query: string;
+  values: Array<string | number>;
+}
 export class InsertAndUpdateData {
   static insertOne(
     tableName: string,
-    data: { [key: string]: string | number },
-    dataTypes: { [key: string]: { type: string; tableOptions: string } },
-  ) {
+    data: inputData,
+    dataTypes: DataTypesInput,
+  ): returnInsertData {
     typesAndOptions.objectTypesCheckAndColumnName(
       data as { [key: string]: string | number },
       dataTypes,
@@ -18,9 +23,9 @@ export class InsertAndUpdateData {
   }
   static insertMany(
     tableName: string,
-    data: { [key: string]: string | number }[],
-    dataTypes: { [key: string]: { type: string; tableOptions: string } },
-  ) {
+    data: inputData[],
+    dataTypes: DataTypesInput,
+  ): returnInsertData {
     const values: Array<string | number> = [];
     for (const el of data) {
       typesAndOptions.objectTypesCheckAndColumnName(el, dataTypes);
@@ -35,21 +40,4 @@ export class InsertAndUpdateData {
     const query = `INSERT INTO ${tableName}(${columnString}) VALUES${columnsToProvide.join(", ")}`;
     return { query, values };
   }
-  // static updateOne(
-  //   tableName: string,
-  //   data: { [key: string]: string | number },
-  //   dataTypes: { [key: string]: { type: string; tableOptions: string } },
-  //   where: { [key: string]: string | number },
-  // ) {
-  //   typesAndOptions.objectTypesCheckAndColumnName(data, dataTypes);
-  //   typesAndOptions.objectTypesCheckAndColumnName(where, dataTypes);
-  //   const columns = Object.keys(data);
-  //   const values = Object.values(data);
-  //   const whereColumns = Object.keys(where);
-  //   const whereValues = Object.values(where);
-  //   const columnsString = columns.join(" = ?, ");
-  //   const whereString = whereColumns.join(" = ? AND ") + " = ?";
-  //   const query = `UPDATE ${tableName} SET ${columnsString} = ? WHERE ${whereString}`;
-  //   return { query, values: [...values, ...whereValues] };
-  // }
 }

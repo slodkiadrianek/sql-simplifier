@@ -1,3 +1,4 @@
+import { DataTypesInput, inputData } from "./types/dataTypes";
 import { SqlSimplifier } from "./app";
 interface SqlOptions {
   PK: string;
@@ -12,9 +13,17 @@ interface SqlOptions {
   setdefault(values: string | number): string;
   setcheck(sqlexpression: string): string;
 }
+interface DataTypes {
+  INT: string;
+  FLOAT: string;
+  BOOL: string;
+  TEXT: string;
+  DATETIME: string;
+}
+
 export class typesAndOptions {
   constructor() {}
-  static get types() {
+  static get types(): DataTypes {
     return {
       INT: "INTEGER",
       FLOAT: "FLOAT",
@@ -61,8 +70,8 @@ export class typesAndOptions {
     }
   }
   static objectTypesCheckAndColumnName(
-    data: { [key: string]: string | number },
-    dataTypes: { [key: string]: { type: string; tableOptions: string } },
+    data: inputData,
+    dataTypes: DataTypesInput,
   ): void {
     for (const [columnName, columnValue] of Object.entries(data)) {
       const result = this.typeChecking(columnValue, dataTypes[columnName].type);

@@ -1,10 +1,9 @@
 import { SqlSimplifier } from "./app";
-
 interface SqlOptions {
-  pk: string;
-  ai: string;
-  nn: string;
-  uq: string;
+  PK: string;
+  AI: string;
+  NN: string;
+  UQ: string;
   setforeignkey(
     columnname: string,
     foreigntable: string,
@@ -13,10 +12,8 @@ interface SqlOptions {
   setdefault(values: string | number): string;
   setcheck(sqlexpression: string): string;
 }
-export class typesAndOptions extends SqlSimplifier {
-  constructor(pathToDatabase: string) {
-    super(pathToDatabase);
-  }
+export class typesAndOptions {
+  constructor() {}
   static get types() {
     return {
       INT: "INTEGER",
@@ -28,10 +25,10 @@ export class typesAndOptions extends SqlSimplifier {
   }
   static get options(): SqlOptions {
     return {
-      pk: "primary key",
-      ai: "autoincrement",
-      nn: "not null",
-      uq: "unique",
+      PK: "primary key",
+      AI: "autoincrement",
+      NN: "not null",
+      UQ: "unique",
       setforeignkey: (
         columnname: string,
         foreigntable: string,
@@ -47,10 +44,7 @@ export class typesAndOptions extends SqlSimplifier {
       },
     };
   }
-  public typeChecking(
-    value: string | boolean | number,
-    expectedType: string,
-  ): boolean {
+  static typeChecking(value: string | number, expectedType: string): boolean {
     switch (expectedType) {
       case "INTEGER":
         return Number.isInteger(value);
@@ -64,6 +58,27 @@ export class typesAndOptions extends SqlSimplifier {
         return typeof value === "string";
       default:
         return false;
+    }
+  }
+  static objectTypesCheckAndColumnName(
+    data: { [key: string]: string | number },
+    dataTypes: { [key: string]: { type: string; tableOptions: string } },
+  ): void {
+    for (const [columnName, columnValue] of Object.entries(data)) {
+      const result = this.typeChecking(columnValue, dataTypes[columnName].type);
+      const isRightName = SqlSimplifier.invalidColumnNames.includes(columnName);
+      if (isRightName) {
+        console.error(`You cannot use the column name ${columnName}`);
+        console.timeEnd("timeApp");
+        process.exit(1);
+      }
+      if (!result) {
+        console.error(
+          `The value ${columnValue} is not of type ${dataTypes[columnName]}`,
+        );
+        console.timeEnd("timeApp");
+        process.exit(1);
+      }
     }
   }
 }

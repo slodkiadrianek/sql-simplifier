@@ -1,6 +1,6 @@
 "use strict";
 import { DatabaseSync } from "node:sqlite";
-
+import { InsertAndUpdateData } from "./insertData";
 type InputData = {
   or: Array<
     | { and: Array<{ [key: string]: any }> } // "and" block with an array of conditions
@@ -11,7 +11,7 @@ type InputData = {
 
 export class SqlSimplifier {
   [key: string]: any;
-  public invalidColumnNames: string[] = [
+  static invalidColumnNames: string[] = [
     "and",
     "or",
     "neq",
@@ -25,7 +25,22 @@ export class SqlSimplifier {
   constructor(public pathToDatabase: string) {
     this.sourceDb = new DatabaseSync(pathToDatabase);
   }
-
+  public insertOne(
+    tableName: string,
+    data: { [key: string]: string | number },
+  ): void {
+    const dataTypes = this[tableName].columns;
+    const result = InsertAndUpdateData.insertOne(tableName, data, dataTypes);
+    this.sourceDb.prepare(result.query).run(...result.values);
+  }
+  public insertMany(
+    tableName: string,
+    data: { [key: string]: string | number }[],
+  ): void {
+    const dataTypes = this[tableName].columns;
+    const result = InsertAndUpdateData.insertMany(tableName, data, dataTypes);
+    this.sourceDb.prepare(result.query).run(...result.values);
+  }
   private findMatchingColumns(
     availableColumns: Array<string>,
     data: object,
@@ -302,7 +317,8 @@ export class SqlSimplifier {
       columns: {
         ...columns,
       },
-      insertData: this.insertData.bind(this, tableName),
+      insertOne: this.insertOne.bind(this, tableName),
+      insertMany: this.insertMany.bind(this, tableName),
       find: this.findOne.bind(this, tableName),
     };
     return this[tableName];
@@ -317,40 +333,6 @@ export class SqlSimplifier {
   }
 }
 
-// const db = new SqlSimplifier("./database.sqlite");
-// db.createTable("people", {
-//   id: {
-//     type: dataTypes.INT,
-//     tableOptions: ` ${tableOptions.PK} ${tableOptions.AI}`,
-//   },
-//   name: {
-//     type: dataTypes.TXT,
-//     tableOptions: `${tableOptions.NN}`,
-//   },
-//   surname: {
-//     type: dataTypes.TXT,
-//     tableOptions: `${tableOptions.NN}`,
-//   },
-//   age: {
-//     type: dataTypes.INT,
-//     tableOptions: `${tableOptions.NN} ${tableOptions.setDefault(18)}`,
-//   },
-// });
-// console.time("timeApp");
-
-// db.showTableSchema("people");
-// db["people"].insertData([
-//   {
-//     name: "Michał",
-//     surname: "Żuk",
-//     age: 21,
-//   },
-//   {
-//     name: "Marcin",
-//     surname: "Bombka",
-//     age: 29,
-//   },
-// ]);
 // const data2 = db["people"].find({
 //   where: {
 //     notIn: ["age", [21, 30]],

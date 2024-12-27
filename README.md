@@ -39,7 +39,6 @@ const db = new SqlSimplifier(pathToDatabase);
 **Create model of table:**
 
 ```typescript
-const db = new SqlSimplifier("./test.db");
 db.createTable("people", {
   id: {
     type: typesAndOptions.types.INT,

@@ -2,6 +2,7 @@
 import { QueryFunctions } from "./queryFunctions";
 import { DatabaseSync } from "node:sqlite";
 import { InsertAndUpdateData } from "./insertData";
+import { typesAndOptions } from "./typesAndOptions";
 export type InputData = {
   or: Array<
     | { and: Array<{ [key: string]: any }> } // "and" block with an array of conditions
@@ -43,157 +44,6 @@ export class SqlSimplifier {
     this.sourceDb.prepare(result.query).run(...result.values);
   }
 
-  private or(data: InputData["or"]): string {
-    let orQuery: Array<string> = this.buildQueryConditions(data);
-    const orQueryString = orQuery.join(" OR ");
-    return orQueryString;
-  }
-  private and(data: InputData["or"]): string {
-    let andQuery: Array<string> = this.buildQueryConditions(data);
-    const andQueryString = andQuery.join(" AND ");
-    return andQueryString;
-  }
-  private between(data: Array<string & Array<string>>): string {
-    let columnName: string = data[0];
-    const betweenQueryString = ` ${columnName} BETWEEN ${data[1][0]} AND ${data[1][1]} `;
-    return betweenQueryString;
-  }
-  private in(data: Array<string & Array<string>>): string {
-    let columnName: string = data[0];
-    const inQueryString = ` ${columnName} IN (${data[1].join(", ")}) `;
-    return inQueryString;
-  }
-  private notIn(data: Array<string & Array<string>>): string {
-    const notInQueryString = this.in(data).replace("IN", "NOT IN");
-    return notInQueryString;
-  }
-  private notBetween(data: Array<string & Array<string>>): string {
-    const notBetweenQueryString = this.between(data).replace(
-      "BETWEEN",
-      "NOT BETWEEN",
-    );
-    return notBetweenQueryString;
-  }
-  private notEquals(data: InputData["or"]): string {
-    const notEqualArray: string[] = this.buildQueryConditions(data);
-    return notEqualArray[0].replace("=", "!=");
-  }
-
-  private greaterThan(data: InputData["or"]): string {
-    const greaterThanArray: string[] = this.buildQueryConditions(data);
-    return greaterThanArray[0].replace("=", ">");
-  }
-  private lessThan(data: InputData["or"]): string {
-    const lessThanArray: string[] = this.buildQueryConditions(data);
-    return lessThanArray[0].replace("=", "<");
-  }
-  private greaterThanOrEqual(data: InputData["or"]): string {
-    const greaterThanOrEqualArray: string[] = this.buildQueryConditions(data);
-    return greaterThanOrEqualArray[0].replace("=", ">=");
-  }
-  private lessThanOrEqual(data: InputData["or"]): string {
-    const lessThanOrEqualArray: string[] = this.buildQueryConditions(data);
-    return lessThanOrEqualArray[0].replace("=", "<=");
-  }
-
-  private where(data: {
-    where?: boolean | { [key: string]: boolean | number | string | object };
-  }): string {
-    const resultArray: string[] = [];
-
-    if (data.where === undefined) return "";
-    if (typeof data.where !== "object") {
-      console.error("The where clausse must be an object");
-      return "";
-    }
-    if ("neq" in data.where && typeof data.where === "object") {
-      const notEqualCondition = (
-        data.where as {
-          neq: InputData["or"];
-        }
-      ).neq;
-      resultArray.push(this.notEquals(notEqualCondition));
-    } else if ("gt" in data.where && typeof data.where === "object") {
-      const greaterThanCondition = (
-        data.where as {
-          gt: InputData["or"];
-        }
-      ).gt;
-      resultArray.push(this.greaterThan(greaterThanCondition));
-    } else if ("lt" in data.where && typeof data.where === "object") {
-      const lessThanCondition = (
-        data.where as {
-          lt: InputData["or"];
-        }
-      ).lt;
-      resultArray.push(this.lessThan(lessThanCondition));
-    } else if ("gte" in data.where && typeof data.where === "object") {
-      const greaterThanOrEqualCondition = (
-        data.where as {
-          gte: InputData["or"];
-        }
-      ).gte;
-      resultArray.push(this.greaterThanOrEqual(greaterThanOrEqualCondition));
-    } else if ("lte" in data.where && typeof data.where === "object") {
-      const lessThanOrEqualCondition = (
-        data.where as {
-          lte: InputData["or"];
-        }
-      ).lte;
-      resultArray.push(this.lessThanOrEqual(lessThanOrEqualCondition));
-    } else if ("or" in data.where && typeof data.where === "object") {
-      const orCondition = (
-        data.where as {
-          or: InputData["or"];
-        }
-      ).or;
-      resultArray.push(this.or(orCondition));
-    } else if ("in" in data.where && typeof data.where === "object") {
-      const inCondition = (
-        data.where as {
-          in: Array<string & Array<string>>;
-        }
-      ).in;
-      resultArray.push(this.in(inCondition));
-    } else if ("notBetween" in data.where && typeof data.where === "object") {
-      const notBetweenCondition = (
-        data.where as {
-          notBetween: Array<string & Array<string>>;
-        }
-      ).notBetween;
-      resultArray.push(this.notBetween(notBetweenCondition));
-    } else if ("notIn" in data.where && typeof data.where === "object") {
-      const notInCondition = (
-        data.where as {
-          notIn: Array<string & Array<string>>;
-        }
-      ).notIn;
-      resultArray.push(this.notIn(notInCondition));
-    } else if ("and" in data.where && typeof data.where === "object") {
-      const andCondition = (
-        data.where as {
-          and: InputData["or"];
-        }
-      ).and;
-      resultArray.push(this.and(andCondition));
-    } else if ("between" in data.where && typeof data.where === "object") {
-      const betweenCondition = (
-        data.where as {
-          between: Array<string & Array<string>>;
-        }
-      ).between;
-      resultArray.push(this.between(betweenCondition));
-    } else {
-      for (let [columnName, columnValues] of Object.entries(data.where)) {
-        if (typeof columnValues === "string") {
-          columnValues = `'${columnValues}'`;
-        }
-        resultArray.push(` ${columnName} = ${columnValues} `);
-      }
-    }
-    return resultArray.join(" AND ");
-  }
-
   findOne(
     tableName: string,
     data: {
@@ -202,13 +52,16 @@ export class SqlSimplifier {
   ): object {
     const availableColumns = Object.keys(this[tableName].columns);
     let selectQuery = QueryFunctions.buildSelect(data, availableColumns);
-    let whereQuery = this.where(data);
-    console.log(whereQuery);
+    let whereQuery = QueryFunctions.buildWhere(data);
     selectQuery = selectQuery.slice(0, -3);
-    const query = `SELECT ${selectQuery} FROM ${tableName} ${whereQuery === "" ? "" : `WHERE ${whereQuery}`} `;
-    console.log(query);
-    const prepared = this.sourceDb.prepare(query);
-    const result: unknown[] = prepared.all();
+
+    const query = `SELECT ${selectQuery} FROM ${tableName} ${whereQuery.queryString === "" ? "" : `WHERE ${whereQuery.queryString}`} `;
+    const dataTypes = this[tableName].columns;
+    for (const el of whereQuery.queryValues) {
+      typesAndOptions.objectTypesCheckAndColumnName(el, dataTypes);
+    }
+    console.log(query, ...whereQuery.queryValues);
+    const result = this.sourceDb.prepare(query).run();
     return result;
   }
 

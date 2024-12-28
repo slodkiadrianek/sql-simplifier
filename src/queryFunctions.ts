@@ -2,6 +2,17 @@ import { SqlSimplifier } from "./app";
 type inputSelectdata = {
   [key: string]: boolean | object;
 };
+
+interface returnOptionsData {
+  queryString: string;
+  queryValues: { [key: string]: string | number }[];
+}
+
+interface returnBuildQueryConditions {
+  result: string[];
+  values: { [key: string]: string | number }[];
+}
+
 import { InputData } from "./app";
 export class QueryFunctions {
   static findMatchingColumns(
@@ -47,19 +58,23 @@ export class QueryFunctions {
     if (selectQuery.length <= 4) selectQuery = "*   ";
     return selectQuery;
   }
-  static buildQueryConditions(data: InputData["or"]): string[] {
+  static buildQueryConditions(
+    data: InputData["or"],
+  ): returnBuildQueryConditions {
     const resultArray: string[] = [];
-
+    const valuesArray: { [key: string]: string | number }[] = [];
     if (Array.isArray(data)) {
       for (let el of data) {
         let defaultOperator = "=";
         if ("and" in el) {
           const andQuery = this.buildQueryConditions(el.and);
-          resultArray.push(andQuery.join(" AND "));
+          resultArray.push(andQuery.result.join(" AND "));
+          valuesArray.push(...andQuery.values);
         }
         if ("or" in el) {
           const andQuery = this.buildQueryConditions(el.or);
-          resultArray.push(andQuery.join(" OR "));
+          resultArray.push(andQuery.result.join(" OR "));
+          valuesArray.push(...andQuery.values);
         }
         if ("neq" in el) {
           defaultOperator = "!=";
@@ -86,155 +101,242 @@ export class QueryFunctions {
             if (typeof columnValues === "string") {
               columnValues = `'${columnValues}'`;
             }
-            resultArray.push(
-              ` ${columnName} ${defaultOperator} ${columnValues} `,
-            );
+            resultArray.push(` ${columnName} ${defaultOperator} ? `);
+            const valueObj: { [key: string]: string | number } = {};
+            valueObj[columnName] = columnValues;
+            console.log(valueObj);
+            valuesArray.push(valueObj);
           }
         }
       }
     }
-    return resultArray;
+    return { result: resultArray, values: valuesArray };
   }
-  static or(data: InputData["or"]): string {
-    let orQuery: Array<string> = this.buildQueryConditions(data);
-    const orQueryString = orQuery.join(" OR ");
-    return orQueryString;
+  static or(data: InputData["or"]): returnOptionsData {
+    let orQuery: returnBuildQueryConditions = this.buildQueryConditions(data);
+    const orQueryString = orQuery.result.join(" OR ");
+    return { queryString: orQueryString, queryValues: orQuery.values };
   }
-  static and(data: InputData["or"]): string {
-    let andQuery: Array<string> = this.buildQueryConditions(data);
-    const andQueryString = andQuery.join(" AND ");
-    return andQueryString;
+  static and(data: InputData["or"]): returnOptionsData {
+    let andQuery: returnBuildQueryConditions = this.buildQueryConditions(data);
+    const andQueryString = andQuery.result.join(" AND ");
+    return { queryString: andQueryString, queryValues: andQuery.values };
   }
-  static between(data: Array<string & Array<string>>): string {
+  static between(
+    data: Array<string & Array<number | string>>,
+  ): returnOptionsData {
     let columnName: string = data[0];
-    const betweenQueryString = ` ${columnName} BETWEEN ${data[1][0]} AND ${data[1][1]} `;
-    return betweenQueryString;
+    const betweenQueryValues: { [key: string]: string } = {};
+    for (let i = 0; i < data[1].length; i++) {
+      if (typeof data[1][i] === "string") {
+        data[1][i] = `'${data[1][i]}'`;
+      }
+      betweenQueryValues[columnName] = data[1][i];
+    }
+    const betweenQueryString = ` ${columnName} BETWEEN ? AND ? `;
+    return {
+      queryString: betweenQueryString,
+      queryValues: [betweenQueryValues],
+    };
   }
-  static in(data: Array<string & Array<string>>): string {
+  static in(data: Array<string & Array<string | number>>): returnOptionsData {
     let columnName: string = data[0];
-    const inQueryString = ` ${columnName} IN (${data[1].join(", ")}) `;
-    return inQueryString;
+
+    const inQueryValues: { [key: string]: string | number }[] = [];
+    for (let i = 0; i < data[1].length; i++) {
+      if (typeof data[1][i] === "string") {
+        data[1][i] = `'${data[1][i]}'`;
+      }
+      const actualObject: { [key: string]: string | number } = {};
+      actualObject[columnName] = data[1][i];
+      inQueryValues.push(actualObject);
+    }
+    const inQueryString = ` ${columnName} IN (${data[1]}) `;
+
+    return {
+      queryString: inQueryString,
+      queryValues: [...inQueryValues],
+    };
   }
-  static notIn(data: Array<string & Array<string>>): string {
-    const notInQueryString = this.in(data).replace("IN", "NOT IN");
-    return notInQueryString;
+  static notIn(
+    data: Array<string & Array<string | number>>,
+  ): returnOptionsData {
+    const notInQueryString = this.in(data);
+    return {
+      queryString: notInQueryString.queryString.replace("IN", "NOT IN"),
+      queryValues: notInQueryString.queryValues,
+    };
   }
-  static notBetween(data: Array<string & Array<string>>): string {
-    const notBetweenQueryString = this.between(data).replace(
-      "BETWEEN",
-      "NOT BETWEEN",
-    );
-    return notBetweenQueryString;
+  static notBetween(
+    data: Array<string & Array<string | number>>,
+  ): returnOptionsData {
+    const notBetweenQueryString = this.between(data);
+    return {
+      queryString: notBetweenQueryString.queryString.replace(
+        "BETWEEN",
+        "NOT BETWEEN",
+      ),
+      queryValues: notBetweenQueryString.queryValues,
+    };
   }
-  static notEquals(data: InputData["or"]): string {
-    const notEqualArray: string[] = this.buildQueryConditions(data);
-    return notEqualArray[0].replace("=", "!=");
+  static notEquals(data: InputData["or"]): returnOptionsData {
+    const notEqualArray: returnBuildQueryConditions =
+      this.buildQueryConditions(data);
+    return {
+      queryString: notEqualArray.result[0].replace("=", "!="),
+      queryValues: notEqualArray.values,
+    };
   }
 
-  static greaterThan(data: InputData["or"]): string {
-    const greaterThanArray: string[] = this.buildQueryConditions(data);
-    return greaterThanArray[0].replace("=", ">");
+  static greaterThan(data: InputData["or"]): returnOptionsData {
+    const greaterThanArray: returnBuildQueryConditions =
+      this.buildQueryConditions(data);
+    return {
+      queryString: greaterThanArray.result[0].replace("=", ">"),
+      queryValues: greaterThanArray.values,
+    };
   }
-  static lessThan(data: InputData["or"]): string {
-    const lessThanArray: string[] = this.buildQueryConditions(data);
-    return lessThanArray[0].replace("=", "<");
+  static lessThan(data: InputData["or"]): returnOptionsData {
+    const lessThanArray: returnBuildQueryConditions =
+      this.buildQueryConditions(data);
+    return {
+      queryString: lessThanArray.result[0].replace("=", "<"),
+      queryValues: lessThanArray.values,
+    };
   }
-  static greaterThanOrEqual(data: InputData["or"]): string {
-    const greaterThanOrEqualArray: string[] = this.buildQueryConditions(data);
-    return greaterThanOrEqualArray[0].replace("=", ">=");
+  static greaterThanOrEqual(data: InputData["or"]): returnOptionsData {
+    const greaterThanOrEqualArray: returnBuildQueryConditions =
+      this.buildQueryConditions(data);
+    return {
+      queryString: greaterThanOrEqualArray.result[0].replace("=", ">="),
+      queryValues: greaterThanOrEqualArray.values,
+    };
   }
-  static lessThanOrEqual(data: InputData["or"]): string {
-    const lessThanOrEqualArray: string[] = this.buildQueryConditions(data);
-    return lessThanOrEqualArray[0].replace("=", "<=");
+  static lessThanOrEqual(data: InputData["or"]): returnOptionsData {
+    const lessThanOrEqualArray: returnBuildQueryConditions =
+      this.buildQueryConditions(data);
+    return {
+      queryString: lessThanOrEqualArray.result[0].replace("=", "<="),
+      queryValues: lessThanOrEqualArray.values,
+    };
   }
 
   static buildWhere(data: {
     where?: boolean | { [key: string]: boolean | number | string | object };
-  }): string {
+  }): returnOptionsData {
     const resultArray: string[] = [];
-
-    if (data.where === undefined) return "";
+    const valuesArray: { [key: string]: string | number }[] = [];
+    if (data.where === undefined)
+      return {
+        queryString: "",
+        queryValues: [],
+      };
     if (typeof data.where !== "object") {
       console.error("The where clausse must be an object");
-      return "";
+      return {
+        queryString: "",
+        queryValues: [],
+      };
     }
-    if ("neq" in data.where && typeof data.where === "object") {
+    if ("neq" in data.where) {
       const notEqualCondition = (
         data.where as {
           neq: InputData["or"];
         }
       ).neq;
-      resultArray.push(this.notEquals(notEqualCondition));
-    } else if ("gt" in data.where && typeof data.where === "object") {
+      const result = this.notEquals(notEqualCondition);
+      resultArray.push(result.queryString);
+      valuesArray.push(...result.queryValues);
+    } else if ("gt" in data.where) {
       const greaterThanCondition = (
         data.where as {
           gt: InputData["or"];
         }
       ).gt;
-      resultArray.push(this.greaterThan(greaterThanCondition));
-    } else if ("lt" in data.where && typeof data.where === "object") {
+      const result = this.greaterThanOrEqual(greaterThanCondition);
+      resultArray.push(result.queryString);
+      valuesArray.push(...result.queryValues);
+    } else if ("lt" in data.where) {
       const lessThanCondition = (
         data.where as {
           lt: InputData["or"];
         }
       ).lt;
-      resultArray.push(this.lessThan(lessThanCondition));
-    } else if ("gte" in data.where && typeof data.where === "object") {
+      const result = this.lessThan(lessThanCondition);
+      resultArray.push(result.queryString);
+      valuesArray.push(...result.queryValues);
+    } else if ("gte" in data.where) {
       const greaterThanOrEqualCondition = (
         data.where as {
           gte: InputData["or"];
         }
       ).gte;
-      resultArray.push(this.greaterThanOrEqual(greaterThanOrEqualCondition));
-    } else if ("lte" in data.where && typeof data.where === "object") {
+      const result = this.greaterThanOrEqual(greaterThanOrEqualCondition);
+      resultArray.push(result.queryString);
+      valuesArray.push(...result.queryValues);
+    } else if ("lte" in data.where) {
       const lessThanOrEqualCondition = (
         data.where as {
           lte: InputData["or"];
         }
       ).lte;
-      resultArray.push(this.lessThanOrEqual(lessThanOrEqualCondition));
-    } else if ("or" in data.where && typeof data.where === "object") {
+      const result = this.lessThanOrEqual(lessThanOrEqualCondition);
+      resultArray.push(result.queryString);
+      valuesArray.push(...result.queryValues);
+    } else if ("or" in data.where) {
       const orCondition = (
         data.where as {
           or: InputData["or"];
         }
       ).or;
-      resultArray.push(this.or(orCondition));
-    } else if ("in" in data.where && typeof data.where === "object") {
+      const result = this.or(orCondition);
+      resultArray.push(result.queryString);
+      valuesArray.push(...result.queryValues);
+    } else if ("in" in data.where) {
       const inCondition = (
         data.where as {
           in: Array<string & Array<string>>;
         }
       ).in;
-      resultArray.push(this.in(inCondition));
-    } else if ("notBetween" in data.where && typeof data.where === "object") {
+      const result = this.in(inCondition);
+      resultArray.push(result.queryString);
+      valuesArray.push(...result.queryValues);
+    } else if ("notBetween" in data.where) {
       const notBetweenCondition = (
         data.where as {
           notBetween: Array<string & Array<string>>;
         }
       ).notBetween;
-      resultArray.push(this.notBetween(notBetweenCondition));
-    } else if ("notIn" in data.where && typeof data.where === "object") {
+      const result = this.notBetween(notBetweenCondition);
+      resultArray.push(result.queryString);
+      valuesArray.push(...result.queryValues);
+    } else if ("notIn" in data.where) {
       const notInCondition = (
         data.where as {
           notIn: Array<string & Array<string>>;
         }
       ).notIn;
-      resultArray.push(this.notIn(notInCondition));
-    } else if ("and" in data.where && typeof data.where === "object") {
+      const result = this.notIn(notInCondition);
+      resultArray.push(result.queryString);
+      valuesArray.push(...result.queryValues);
+    } else if ("and" in data.where) {
       const andCondition = (
         data.where as {
           and: InputData["or"];
         }
       ).and;
-      resultArray.push(this.and(andCondition));
-    } else if ("between" in data.where && typeof data.where === "object") {
+      const result = this.and(andCondition);
+      resultArray.push(result.queryString);
+      valuesArray.push(...result.queryValues);
+    } else if ("between" in data.where) {
       const betweenCondition = (
         data.where as {
           between: Array<string & Array<string>>;
         }
       ).between;
-      resultArray.push(this.between(betweenCondition));
+      const result = this.between(betweenCondition);
+      resultArray.push(result.queryString);
+      valuesArray.push(...result.queryValues);
     } else {
       for (let [columnName, columnValues] of Object.entries(data.where)) {
         if (typeof columnValues === "string") {
@@ -243,6 +345,9 @@ export class QueryFunctions {
         resultArray.push(` ${columnName} = ${columnValues} `);
       }
     }
-    return resultArray.join(" AND ");
+    return {
+      queryString: resultArray.join(" AND "),
+      queryValues: valuesArray,
+    };
   }
 }

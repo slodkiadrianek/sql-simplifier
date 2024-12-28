@@ -83,7 +83,7 @@ export class typesAndOptions {
       }
       if (!result) {
         console.error(
-          `The value ${columnValue} is not of type ${dataTypes[columnName]}`,
+          `The value ${columnValue} is not of type ${dataTypes[columnName].type}`,
         );
         console.timeEnd("timeApp");
         process.exit(1);

@@ -29,8 +29,9 @@ console.time("timeApp");
 //   { name: "Michał", surname: "Kowalski", age: 30 },
 // ]);
 const data = db["people"].find({
-  distinct: { name: true },
-  count: { age: true },
+  where: {
+    in: ["name", [18, "Jane"]],
+  },
 });
 console.table(data);
 console.timeEnd("timeApp");

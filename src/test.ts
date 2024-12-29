@@ -28,10 +28,13 @@ console.time("timeApp");
 //   { name: "Jane", surname: "Doe", age: 24 },
 //   { name: "Michał", surname: "Kowalski", age: 30 },
 // ]);
-const data = db["people"].find({
-  where: {
-    in: ["name", [18, "Jane"]],
+const data = db["people"].findMany({
+  name: true,
+  orderBy: {
+    age: "DESC",
   },
+  limit: 5,
+  skip: 2,
 });
 console.table(data);
 console.timeEnd("timeApp");

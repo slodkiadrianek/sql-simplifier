@@ -1,4 +1,5 @@
 "use strict";
+import { QueryOptions } from "./queryOptions";
 import { QueryFunctions } from "./queryFunctions";
 import { DatabaseSync } from "node:sqlite";
 import { InsertAndUpdateData } from "./insertData";
@@ -22,6 +23,9 @@ export class SqlSimplifier {
     "gte",
     "lte",
     "between",
+    "like",
+    "in",
+    "notIn",
   ];
   private sourceDb: DatabaseSync;
   constructor(public pathToDatabase: string) {
@@ -44,30 +48,42 @@ export class SqlSimplifier {
     this.sourceDb.prepare(result.query).run(...result.values);
   }
 
-  findOne(
+  findMany(
     tableName: string,
     data: {
-      where?: boolean | { [key: string]: boolean | object };
+      where?: {
+        [key: string]: boolean | { [key: string]: string | number | object };
+      };
+    } & {
+      [key: string]: boolean;
+    } & {
+      orderBy: {
+        [key: string]: "ASC" | "DESC";
+      }[];
+    } & {
+      skip: number;
+    } & {
+      limit: number;
     },
   ): object {
     const availableColumns = Object.keys(this[tableName].columns);
     let selectQuery = QueryFunctions.buildSelect(data, availableColumns);
-    let whereQuery = QueryFunctions.buildWhere(data);
     selectQuery = selectQuery.slice(0, -3);
-
-    const query = `SELECT ${selectQuery} FROM ${tableName} ${whereQuery.queryString === "" ? "" : `WHERE ${whereQuery.queryString}`} `;
+    const whereQuery = QueryFunctions.buildWhere(data);
+    const optionsQuery = QueryOptions.buildQueryOptions(data);
+    const query = `SELECT ${selectQuery} FROM ${tableName} ${whereQuery.queryString === "" ? "" : `WHERE ${whereQuery.queryString}`} ${optionsQuery !== "" ? optionsQuery : ""}`;
     const dataTypes = this[tableName].columns;
     for (const el of whereQuery.queryValues) {
       typesAndOptions.objectTypesCheckAndColumnName(el, dataTypes);
     }
     console.log(query, ...whereQuery.queryValues);
-    const result = this.sourceDb.prepare(query).run();
+    const result = this.sourceDb.prepare(query).all();
     return result;
   }
 
   createTable(
     tableName: string,
-    columns: { [key: string]: { [key: string]: string } },
+    columns: { [key: string]: { type: string; tableOptions: string } },
   ): object {
     let query: string = `CREATE TABLE IF NOT EXISTS ${tableName} (`;
     for (const [columnName, columnProperties] of Object.entries(columns)) {
@@ -87,7 +103,7 @@ export class SqlSimplifier {
       },
       insertOne: this.insertOne.bind(this, tableName),
       insertMany: this.insertMany.bind(this, tableName),
-      find: this.findOne.bind(this, tableName),
+      findMany: this.findMany.bind(this, tableName),
     };
     return this[tableName];
   }

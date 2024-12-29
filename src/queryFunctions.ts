@@ -42,9 +42,11 @@ export class QueryFunctions {
         availableColumns,
         data.distinct,
       )[0];
-      distinctColumn.length > 0
-        ? (distinctColumn = `DISTINCT ${distinctColumn}`)
-        : (distinctColumn = "");
+      if (distinctColumn.length > 0) {
+        distinctColumn = `DISTINCT ${distinctColumn}`;
+      } else {
+        distinctColumn = "";
+      }
     }
     if (typeof data.count === "object" && data.count !== null) {
       let countColumns = QueryFunctions.findMatchingColumns(
@@ -96,15 +98,15 @@ export class QueryFunctions {
           defaultOperator = ">=";
           el = el.gte;
         }
-        for (let [columnName, columnValues] of Object.entries(el)) {
+        for (const [columnName, columnValues] of Object.entries(el)) {
           if (!SqlSimplifier.invalidColumnNames.includes(columnName)) {
+            let values = columnValues;
             if (typeof columnValues === "string") {
-              columnValues = `'${columnValues}'`;
+              values = `'${columnValues}'`;
             }
             resultArray.push(` ${columnName} ${defaultOperator} ? `);
             const valueObj: { [key: string]: string | number } = {};
-            valueObj[columnName] = columnValues;
-            console.log(valueObj);
+            valueObj[columnName] = values;
             valuesArray.push(valueObj);
           }
         }
@@ -113,19 +115,20 @@ export class QueryFunctions {
     return { result: resultArray, values: valuesArray };
   }
   static or(data: InputData["or"]): returnOptionsData {
-    let orQuery: returnBuildQueryConditions = this.buildQueryConditions(data);
+    const orQuery: returnBuildQueryConditions = this.buildQueryConditions(data);
     const orQueryString = orQuery.result.join(" OR ");
     return { queryString: orQueryString, queryValues: orQuery.values };
   }
   static and(data: InputData["or"]): returnOptionsData {
-    let andQuery: returnBuildQueryConditions = this.buildQueryConditions(data);
+    const andQuery: returnBuildQueryConditions =
+      this.buildQueryConditions(data);
     const andQueryString = andQuery.result.join(" AND ");
     return { queryString: andQueryString, queryValues: andQuery.values };
   }
   static between(
     data: Array<string & Array<number | string>>,
   ): returnOptionsData {
-    let columnName: string = data[0];
+    const columnName: string = data[0];
     const betweenQueryValues: { [key: string]: string } = {};
     for (let i = 0; i < data[1].length; i++) {
       if (typeof data[1][i] === "string") {
@@ -140,8 +143,7 @@ export class QueryFunctions {
     };
   }
   static in(data: Array<string & Array<string | number>>): returnOptionsData {
-    let columnName: string = data[0];
-
+    const columnName: string = data[0];
     const inQueryValues: { [key: string]: string | number }[] = [];
     for (let i = 0; i < data[1].length; i++) {
       if (typeof data[1][i] === "string") {
@@ -166,6 +168,18 @@ export class QueryFunctions {
       queryString: notInQueryString.queryString.replace("IN", "NOT IN"),
       queryValues: notInQueryString.queryValues,
     };
+  }
+  static like(data: { [key: string]: string }): string {
+    if (typeof data === "object" && data !== null) {
+      for (const [columnName, columnValues] of Object.entries(data)) {
+        console.log(columnName, columnValues);
+        return `${columnName} LIKE '${columnValues}'`;
+      }
+    } else {
+      console.error("Wrong data provided");
+      process.exit(1);
+    }
+    return "";
   }
   static notBetween(
     data: Array<string & Array<string | number>>,
@@ -237,6 +251,14 @@ export class QueryFunctions {
         queryString: "",
         queryValues: [],
       };
+    }
+    if ("like" in data.where) {
+      const likeConditions = (
+        data.where as {
+          like: { [key: string]: string };
+        }
+      ).like;
+      resultArray.push(this.like(likeConditions));
     }
     if ("neq" in data.where) {
       const notEqualCondition = (
@@ -338,11 +360,15 @@ export class QueryFunctions {
       resultArray.push(result.queryString);
       valuesArray.push(...result.queryValues);
     } else {
-      for (let [columnName, columnValues] of Object.entries(data.where)) {
-        if (typeof columnValues === "string") {
-          columnValues = `'${columnValues}'`;
+      for (const [columnName, columnValues] of Object.entries(data.where)) {
+        if (SqlSimplifier.invalidColumnNames.includes(columnName)) {
+          continue;
         }
-        resultArray.push(` ${columnName} = ${columnValues} `);
+        let value = columnValues;
+        if (typeof columnValues === "string") {
+          value = `'${columnValues}'`;
+        }
+        resultArray.push(` ${columnName} = ${value} `);
       }
     }
     return {

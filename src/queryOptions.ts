@@ -5,6 +5,9 @@ export class QueryOptions {
   static setSkip(skip: number): string {
     return `OFFSET ${skip}`;
   }
+  static setGroupBy(columnName: string): string {
+    return `GROUP BY ${columnName}`;
+  }
   static setOrderBy(data: { [key: string]: "ASC" | "DESC" }[]): string {
     const orderBy: string[] = [];
     for (const [columnName, type] of Object.entries(data)) {

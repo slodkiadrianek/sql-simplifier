@@ -29,12 +29,11 @@ console.time("timeApp");
 //   { name: "Michał", surname: "Kowalski", age: 30 },
 // ]);
 const data = db["people"].findMany({
-  name: true,
-  orderBy: {
-    age: "DESC",
+  groupBy: "name",
+  count: {
+    age: true,
   },
-  limit: 5,
-  skip: 2,
+  name: true,
 });
 console.table(data);
 console.timeEnd("timeApp");

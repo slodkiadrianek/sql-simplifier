@@ -52,7 +52,7 @@ export class SqlSimplifier {
     tableName: string,
     data: {
       where?: {
-        [key: string]: boolean | { [key: string]: string | number | object };
+        [key: string]: string | number | object;
       };
     } & {
       [key: string]: boolean;
@@ -64,16 +64,27 @@ export class SqlSimplifier {
       skip: number;
     } & {
       limit: number;
+    } & {
+      groupBy: string;
+      having?: {
+        [key: string]: string | number | object;
+      };
     },
   ): object {
     const availableColumns = Object.keys(this[tableName].columns);
     let selectQuery = QueryFunctions.buildSelect(data, availableColumns);
     selectQuery = selectQuery.slice(0, -3);
+    const havingQuery = QueryFunctions.buildHaving(data);
     const whereQuery = QueryFunctions.buildWhere(data);
     const optionsQuery = QueryOptions.buildQueryOptions(data);
-    const query = `SELECT ${selectQuery} FROM ${tableName} ${whereQuery.queryString === "" ? "" : `WHERE ${whereQuery.queryString}`} ${optionsQuery !== "" ? optionsQuery : ""}`;
+    const groupByQuery = QueryOptions.setGroupBy(data.groupBy);
+    const query = `SELECT ${selectQuery} FROM ${tableName} ${whereQuery.queryString === "" ? "" : `WHERE ${whereQuery.queryString}`}${data.groupBy !== undefined && data.groupBy !== "" ? groupByQuery : ""} ${havingQuery.queryString !== "" && data.groupBy !== undefined && data.groupBy !== "" ? havingQuery.queryString : ""} ${optionsQuery !== "" ? optionsQuery : ""}`;
     const dataTypes = this[tableName].columns;
-    for (const el of whereQuery.queryValues) {
+    const dataTypesToCheck = [
+      ...whereQuery.queryValues,
+      ...havingQuery.queryValues,
+    ];
+    for (const el of dataTypesToCheck) {
       typesAndOptions.objectTypesCheckAndColumnName(el, dataTypes);
     }
     console.log(query, ...whereQuery.queryValues);
@@ -116,11 +127,3 @@ export class SqlSimplifier {
     console.table(result.all());
   }
 }
-
-// const data2 = db["people"].find({
-//   where: {
-//     notIn: ["age", [21, 30]],
-//   },
-// });
-// console.table(data2);
-// console.timeEnd("timeApp");

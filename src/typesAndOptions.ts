@@ -22,7 +22,6 @@ interface DataTypes {
 }
 
 export class typesAndOptions {
-  constructor() {}
   static get types(): DataTypes {
     return {
       INT: "INTEGER",

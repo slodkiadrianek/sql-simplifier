@@ -2,7 +2,8 @@ import { SqlSimplifier } from "./app";
 type inputSelectdata = {
   [key: string]: boolean | object;
 };
-
+type valuesArrayType = { [key: string]: string | number }[];
+type whereHavingType = { [key: string]: number | string | object };
 interface returnOptionsData {
   queryString: string;
   queryValues: { [key: string]: string | number }[];
@@ -64,7 +65,7 @@ export class QueryFunctions {
     data: InputData["or"],
   ): returnBuildQueryConditions {
     const resultArray: string[] = [];
-    const valuesArray: { [key: string]: string | number }[] = [];
+    const valuesArray: valuesArrayType = [];
     if (Array.isArray(data)) {
       for (let el of data) {
         let defaultOperator = "=";
@@ -144,7 +145,7 @@ export class QueryFunctions {
   }
   static in(data: Array<string & Array<string | number>>): returnOptionsData {
     const columnName: string = data[0];
-    const inQueryValues: { [key: string]: string | number }[] = [];
+    const inQueryValues: valuesArrayType = [];
     for (let i = 0; i < data[1].length; i++) {
       if (typeof data[1][i] === "string") {
         data[1][i] = `'${data[1][i]}'`;
@@ -180,6 +181,11 @@ export class QueryFunctions {
       process.exit(1);
     }
     return "";
+  }
+
+  static notLike(data: { [key: string]: string }): string {
+    const result = this.like(data);
+    return result.replace("LIKE", "NOT LIKE");
   }
   static notBetween(
     data: Array<string & Array<string | number>>,
@@ -236,13 +242,13 @@ export class QueryFunctions {
   }
   static buildQueryString(
     data: {
-      where?: { [key: string]: number | string | object };
-      having?: { [key: string]: number | string | object };
+      where?: whereHavingType;
+      having?: whereHavingType;
     },
     type: "where" | "having",
   ): returnOptionsData {
     const resultArray: string[] = [];
-    const valuesArray: { [key: string]: string | number }[] = [];
+    const valuesArray: valuesArrayType = [];
     if (data[type] === undefined)
       return {
         queryString: "",
@@ -254,6 +260,14 @@ export class QueryFunctions {
         queryString: "",
         queryValues: [],
       };
+    }
+    if ("notLike" in data[type]) {
+      const notLikeConditions = (
+        data[type] as {
+          notLike: { [key: string]: string };
+        }
+      ).notLike;
+      resultArray.push(this.notLike(notLikeConditions));
     }
     if ("like" in data[type]) {
       const likeConditions = (
@@ -381,7 +395,7 @@ export class QueryFunctions {
   }
   static buildHaving(data: {
     groupBy: string;
-    having?: { [key: string]: number | string | object };
+    having?: whereHavingType;
   }): returnOptionsData {
     const results = this.buildQueryString(data, "having");
     return {
@@ -389,9 +403,7 @@ export class QueryFunctions {
       queryValues: results.queryValues,
     };
   }
-  static buildWhere(data: {
-    where?: { [key: string]: number | string | object };
-  }): returnOptionsData {
+  static buildWhere(data: { where?: whereHavingType }): returnOptionsData {
     const results = this.buildQueryString(data, "where");
     return {
       queryString: results.queryString,

@@ -1,3 +1,4 @@
+type orderByType = { [key: string]: "ASC" | "DESC" }[];
 export class QueryOptions {
   static setLimit(limit: number): string {
     return `LIMIT ${limit}`;
@@ -8,7 +9,7 @@ export class QueryOptions {
   static setGroupBy(columnName: string): string {
     return `GROUP BY ${columnName}`;
   }
-  static setOrderBy(data: { [key: string]: "ASC" | "DESC" }[]): string {
+  static setOrderBy(data: orderByType): string {
     const orderBy: string[] = [];
     for (const [columnName, type] of Object.entries(data)) {
       orderBy.push(`ORDER BY ${columnName} ${type}`);
@@ -18,7 +19,7 @@ export class QueryOptions {
   static buildQueryOptions(data: {
     limit?: number;
     skip?: number;
-    orderBy: { [key: string]: "ASC" | "DESC" }[];
+    orderBy: orderByType;
   }): string {
     const queryString: string[] = [];
     if (typeof data !== "object" || data === undefined) {

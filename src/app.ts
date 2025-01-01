@@ -26,6 +26,11 @@ export class SqlSimplifier {
     "like",
     "in",
     "notIn",
+    "orderBy",
+    "groupBy",
+    "having",
+    "limit",
+    "notLike",
   ];
   private sourceDb: DatabaseSync;
   constructor(public pathToDatabase: string) {

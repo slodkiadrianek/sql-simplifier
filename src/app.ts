@@ -4,14 +4,33 @@ import { QueryFunctions } from "./queryFunctions";
 import { DatabaseSync } from "node:sqlite";
 import { InsertAndUpdateData } from "./insertData";
 import { typesAndOptions } from "./typesAndOptions";
+type findType = {
+  where?: {
+    [key: string]: string | number | object;
+  };
+} & {
+  [key: string]: boolean;
+} & {
+  orderBy: {
+    [key: string]: "ASC" | "DESC";
+  }[];
+} & {
+  skip: number;
+} & {
+  limit: number;
+} & {
+  groupBy: string;
+  having?: {
+    [key: string]: string | number | object;
+  };
+};
 export type InputData = {
   or: Array<
-    | { and: Array<{ [key: string]: any }> } // "and" block with an array of conditions
-    | { or: Array<{ [key: string]: any }> } // "or" block with an array of conditions
-    | { [key: string]: any } // Single condition like { name: "Adrian" }
+    | { and: Array<{ [key: string]: any }> }
+    | { or: Array<{ [key: string]: any }> }
+    | { [key: string]: any }
   >;
 };
-
 export class SqlSimplifier {
   [key: string]: any;
   static invalidColumnNames: string[] = [
@@ -53,29 +72,7 @@ export class SqlSimplifier {
     this.sourceDb.prepare(result.query).run(...result.values);
   }
 
-  findMany(
-    tableName: string,
-    data: {
-      where?: {
-        [key: string]: string | number | object;
-      };
-    } & {
-      [key: string]: boolean;
-    } & {
-      orderBy: {
-        [key: string]: "ASC" | "DESC";
-      }[];
-    } & {
-      skip: number;
-    } & {
-      limit: number;
-    } & {
-      groupBy: string;
-      having?: {
-        [key: string]: string | number | object;
-      };
-    },
-  ): object {
+  findMany(tableName: string, data: findType): object {
     const availableColumns = Object.keys(this[tableName].columns);
     let selectQuery = QueryFunctions.buildSelect(data, availableColumns);
     selectQuery = selectQuery.slice(0, -3);
@@ -92,7 +89,6 @@ export class SqlSimplifier {
     for (const el of dataTypesToCheck) {
       typesAndOptions.objectTypesCheckAndColumnName(el, dataTypes);
     }
-    console.log(query, ...whereQuery.queryValues);
     const result = this.sourceDb.prepare(query).all();
     return result;
   }
@@ -100,18 +96,50 @@ export class SqlSimplifier {
   createTable(
     tableName: string,
     columns: { [key: string]: { type: string; tableOptions: string } },
-  ): object {
+  ): {
+    columns: { type: string; tableOptions: string };
+    insertOne: (
+      tableName: string,
+      data: { [key: string]: string | number },
+    ) => void;
+    insertMany: (
+      tableName: string,
+      data: { [key: string]: string | number }[],
+    ) => void;
+    findMany: (tableName: string, data: findType) => object;
+  } {
     let query: string = `CREATE TABLE IF NOT EXISTS ${tableName} (`;
+    const foreignKeys = [];
     for (const [columnName, columnProperties] of Object.entries(columns)) {
+      if (SqlSimplifier.invalidColumnNames.includes(columnName)) {
+        console.error(`You cannot use the column name ${columnName}`);
+        return process.exit(1);
+      }
+      const splittedOptions: string[] =
+        columnProperties.tableOptions.split("!");
+      if (columnProperties.tableOptions.includes("Foreign")) {
+        for (let i = 0; i < splittedOptions.length; i++) {
+          if (splittedOptions[i].includes("Foreign")) {
+            foreignKeys.push(splittedOptions[i]);
+            splittedOptions.splice(i, 1);
+            break;
+          }
+        }
+      }
       query +=
         columnName +
         " " +
         columnProperties.type +
         " " +
-        columnProperties.tableOptions +
+        splittedOptions.join(" ") +
         ", ";
     }
+    query += foreignKeys.join(",");
+    if (foreignKeys.length > 0) {
+      query += "  ";
+    }
     query = query.slice(0, -2) + ")";
+    console.log(query);
     this.sourceDb.exec(query);
     this[tableName] = {
       columns: {

@@ -42,13 +42,13 @@ export class typesAndOptions {
         foreigntable: string,
         foreigncolumn: string,
       ): string => {
-        return `foreign key (${columnname}) references ${foreigntable}(${foreigncolumn})`;
+        return `!Foreign key (${columnname}) references ${foreigntable}(${foreigncolumn})!`;
       },
       setdefault: (values: string | number): string => {
         return `default ${values}`;
       },
-      setcheck: (sqlexpression: string): string => {
-        return `check (${sqlexpression})`;
+      setcheck: (sqlExpression: string): string => {
+        return `check (${sqlExpression})`;
       },
     };
   }

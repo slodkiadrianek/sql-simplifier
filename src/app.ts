@@ -4,6 +4,7 @@ import { QueryFunctions } from "./queryFunctions";
 import { DatabaseSync } from "node:sqlite";
 import { InsertAndUpdateData } from "./insertData";
 import { typesAndOptions } from "./typesAndOptions";
+import { Relations } from "./relations";
 type findType = {
   where?: {
     [key: string]: string | number | object;
@@ -23,6 +24,8 @@ type findType = {
   having?: {
     [key: string]: string | number | object;
   };
+} & {
+  with: { [key: string]: boolean };
 };
 export type InputData = {
   or: Array<
@@ -73,14 +76,26 @@ export class SqlSimplifier {
   }
 
   findMany(tableName: string, data: findType): object {
-    const availableColumns = Object.keys(this[tableName].columns);
+    let availableColumns;
+    if (data.with !== undefined) {
+      availableColumns = Object.keys(this[tableName].columns);
+      for (const [key, value] of Object.entries(data.with)) {
+        if (value) {
+          const keys = Object.keys(this[key].columns);
+          availableColumns.push(...keys);
+        }
+      }
+    } else {
+      availableColumns = Object.keys(this[tableName].columns);
+    }
     let selectQuery = QueryFunctions.buildSelect(data, availableColumns);
     selectQuery = selectQuery.slice(0, -3);
     const havingQuery = QueryFunctions.buildHaving(data);
     const whereQuery = QueryFunctions.buildWhere(data);
     const optionsQuery = QueryOptions.buildQueryOptions(data);
     const groupByQuery = QueryOptions.setGroupBy(data.groupBy);
-    const query = `SELECT ${selectQuery} FROM ${tableName} ${whereQuery.queryString === "" ? "" : `WHERE ${whereQuery.queryString}`}${data.groupBy !== undefined && data.groupBy !== "" ? groupByQuery : ""} ${havingQuery.queryString !== "" && data.groupBy !== undefined && data.groupBy !== "" ? havingQuery.queryString : ""} ${optionsQuery !== "" ? optionsQuery : ""}`;
+    const joinQuery = Relations.find(tableName, data.with, this[tableName]);
+    const query = `SELECT ${selectQuery} FROM ${tableName} ${joinQuery !== "" || joinQuery !== undefined ? joinQuery : ""} ${whereQuery.queryString === "" ? "" : `WHERE ${whereQuery.queryString}`}${data.groupBy !== undefined && data.groupBy !== "" ? groupByQuery : ""} ${havingQuery.queryString !== "" && data.groupBy !== undefined && data.groupBy !== "" ? havingQuery.queryString : ""} ${optionsQuery !== "" ? optionsQuery : ""}`;
     const dataTypes = this[tableName].columns;
     const dataTypesToCheck = [
       ...whereQuery.queryValues,
@@ -89,6 +104,7 @@ export class SqlSimplifier {
     for (const el of dataTypesToCheck) {
       typesAndOptions.objectTypesCheckAndColumnName(el, dataTypes);
     }
+    console.log(query);
     const result = this.sourceDb.prepare(query).all();
     return result;
   }
@@ -139,7 +155,6 @@ export class SqlSimplifier {
       query += "  ";
     }
     query = query.slice(0, -2) + ")";
-    console.log(query);
     this.sourceDb.exec(query);
     this[tableName] = {
       columns: {

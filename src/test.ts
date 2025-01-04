@@ -20,7 +20,7 @@ const db = new SqlSimplifier("./test.db");
 //     tableOptions: `${typesAndOptions.options.NN}`,
 //   },
 // });
-const supplier_groups = db.createTable("supplier_groups", {
+db.createTable("supplier_groups", {
   group_id: {
     type: typesAndOptions.types.INT,
     tableOptions: `${typesAndOptions.options.PK} ${typesAndOptions.options.AI}`,
@@ -30,12 +30,11 @@ const supplier_groups = db.createTable("supplier_groups", {
     tableOptions: `${typesAndOptions.options.NN}`,
   },
 });
-const suppliers = db.createTable("suppliers", {
+db.createTable("suppliers", {
   supplier_id: {
     type: typesAndOptions.types.INT,
     tableOptions: `${typesAndOptions.options.PK} ${typesAndOptions.options.AI}`,
   },
-
   group_id: {
     type: typesAndOptions.types.INT,
     tableOptions: `${typesAndOptions.options.NN} ${typesAndOptions.options.setforeignkey("group_id", "supplier_groups", "group_id")}`,
@@ -44,10 +43,50 @@ const suppliers = db.createTable("suppliers", {
     type: typesAndOptions.types.TEXT,
     tableOptions: `${typesAndOptions.options.NN}`,
   },
+  company_group_id: {
+    type: typesAndOptions.types.INT,
+    tableOptions: `${typesAndOptions.options.NN} ${typesAndOptions.options.setforeignkey("company_group_id", "company_groups", "company_group_id")}`,
+  },
 });
-db.showTableSchema("suppliers");
+
+db.createTable("company_groups", {
+  company_group_id: {
+    type: typesAndOptions.types.INT,
+    tableOptions: `${typesAndOptions.options.PK} ${typesAndOptions.options.AI}`,
+  },
+  company_group_name: {
+    type: typesAndOptions.types.TEXT,
+    tableOptions: `${typesAndOptions.options.NN}`,
+  },
+});
+// db["company_groups"].insertOne({
+//   company_group_name: "KOMPLEX",
+// });
 console.time("timeApp");
-console.log(supplier_groups, suppliers);
+const data = db["company_groups"].findMany({});
+console.table(data);
+// console.log(supplier_groups, suppliers);
+// db["supplier_groups"].insertOne({
+//   group_name: "Foliarze",
+// });
+const data2 = db["supplier_groups"].findMany({});
+console.table(data2);
+// db["suppliers"].insertOne({
+//   group_id: 1,
+//   supplier_name: "FOLIOTEX",
+//   company_group_id: 1,
+// });
+const suppliersData = db["suppliers"].findMany({
+  group_name: true,
+  "company_groups.company_group_name": true,
+  "suppliers.supplier_name": true,
+  "supplier_groups.group_id": true,
+  with: {
+    supplier_groups: true,
+    company_groups: true,
+  },
+});
+console.table(suppliersData);
 // db["people"].insertOne({ name: "John", surname: "Doe", age: 25 });
 // db["people"].insertMany([
 //   { name: "John", surname: "Doe", age: 25 },
@@ -57,8 +96,8 @@ console.log(supplier_groups, suppliers);
 // const data = db["people"].findMany({
 //   groupBy: "name",
 //   count: {
-  //     age: true,
-  //   }, 
+//     age: true,
+//   },
 //   name: true,
 // });
 // console.log(people.);

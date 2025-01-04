@@ -22,7 +22,13 @@ export class QueryFunctions {
   ): Array<string> {
     const matchingColumns = [];
     for (const [columnName, columnValues] of Object.entries(data)) {
-      if (availableColumns.includes(columnName) && columnValues) {
+      let columnNameChecked: string = "";
+      if (columnName.includes(".")) {
+        columnNameChecked = columnName.split(".")[1];
+      } else {
+        columnNameChecked = columnName;
+      }
+      if (availableColumns.includes(columnNameChecked) && columnValues) {
         matchingColumns.push(columnName);
       }
     }

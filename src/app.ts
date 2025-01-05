@@ -5,28 +5,56 @@ import { DatabaseSync } from "node:sqlite";
 import { InsertAndUpdateData } from "./insertData";
 import { typesAndOptions } from "./typesAndOptions";
 import { Relations } from "./relations";
+type WhereClause = { [key: string]: string | number | object };
+type OrderByClause = { [key: string]: "ASC" | "DESC" };
+type WithClause = Record<string, boolean>;
 type findType = {
-  where?: {
-    [key: string]: string | number | object;
-  };
-} & {
-  [key: string]: boolean;
-} & {
-  orderBy: {
-    [key: string]: "ASC" | "DESC";
-  }[];
-} & {
-  skip: number;
-} & {
-  limit: number;
-} & {
-  groupBy: string;
-  having?: {
-    [key: string]: string | number | object;
-  };
-} & {
-  with: { [key: string]: boolean };
+  where?: WhereClause; // Filtering conditions
+  orderBy: OrderByClause[]; // Sorting order
+  skip: number; // Number of records to skip
+  limit: number; // Maximum number of records to fetch
+  groupBy: string; // Grouping criteria
+  having?: WhereClause; // Post-grouping filter
+  with: WithClause; // Additional related data to include
+} & Record<string, boolean>;
+type updateType = {
+  // Fields to update
+  [key: string]: string | number; // Explicitly define update fields
+  skip: number; // Number of records to skip
+  limit: number; // Maximum number of records to update
+  where?: WhereClause; // Filtering conditions
+  orderBy: OrderByClause[]; // Sorting order for updates
 };
+//
+// type findType = {
+//   where?: WhereClause;
+// } & {
+//   [key: string]: boolean;
+// } & {
+//   orderBy: {
+//     [key: string]: "ASC" | "DESC";
+//   }[];
+// } & {
+//   skip: number;
+// } & {
+//   limit: number;
+// } & {
+//   groupBy: string;
+//   having?: WhereClause;
+// } & {
+//   with: WithClause;
+// };
+// type updateType = {
+//   [key: string]: string | number;
+// } & {
+//   skip: number;
+// } & {
+//   limit?: number;
+// } & {
+//   where?: WhereClause;
+// } & {
+//   orderBy: OrderByClause[];
+// };
 export type InputData = {
   or: Array<
     | { and: Array<{ [key: string]: any }> }
@@ -58,15 +86,38 @@ export class SqlSimplifier {
   constructor(public pathToDatabase: string) {
     this.sourceDb = new DatabaseSync(pathToDatabase);
   }
-  public insertOne(
-    tableName: string,
-    data: { [key: string]: string | number },
-  ): void {
+  updateOne(tableName: string, data: updateType): void {
+    const availableColumns: string[] = Object.keys(this[tableName].columns);
+    const result = QueryFunctions.findMatchingColumns(
+      availableColumns,
+      data,
+    )[0];
+    const whereQuery = QueryFunctions.buildWhere(data);
+    const optionsQuery = QueryOptions.buildQueryOptions(data);
+    const query = `UPDATE ${tableName} SET ${result}=${typeof data[result] === "string" ? `'${data[result]}'` : data[result]} ${whereQuery.queryString === "" ? "" : `WHERE ${whereQuery.queryString}`} ${optionsQuery !== "" ? optionsQuery : ""}`;
+    console.log(query);
+    this.sourceDb.prepare(query).all();
+  }
+  updateMany(tableName: string, data: updateType): void {
+    const availableColumns: string[] = Object.keys(this[tableName].columns);
+    const result = QueryFunctions.findMatchingColumns(availableColumns, data);
+    const whereQuery = QueryFunctions.buildWhere(data);
+    const optionsQuery = QueryOptions.buildQueryOptions(data);
+    const columnsToReplaceWithValues: string[] = [];
+    for (const el of result) {
+      columnsToReplaceWithValues.push(
+        `${el}=${typeof data[el] === "string" ? `'${data[el]}'` : data[el]}`,
+      );
+    }
+    const query = `UPDATE ${tableName} SET ${columnsToReplaceWithValues.join(", ")}  ${whereQuery.queryString === "" ? "" : `WHERE ${whereQuery.queryString}`} ${optionsQuery !== "" ? optionsQuery : ""}`;
+    this.sourceDb.prepare(query).all();
+  }
+  insertOne(tableName: string, data: { [key: string]: string | number }): void {
     const dataTypes = this[tableName].columns;
     const result = InsertAndUpdateData.insertOne(tableName, data, dataTypes);
     this.sourceDb.prepare(result.query).run(...result.values);
   }
-  public insertMany(
+  insertMany(
     tableName: string,
     data: { [key: string]: string | number }[],
   ): void {
@@ -96,6 +147,40 @@ export class SqlSimplifier {
     const groupByQuery = QueryOptions.setGroupBy(data.groupBy);
     const joinQuery = Relations.find(tableName, data.with, this[tableName]);
     const query = `SELECT ${selectQuery} FROM ${tableName} ${joinQuery !== "" || joinQuery !== undefined ? joinQuery : ""} ${whereQuery.queryString === "" ? "" : `WHERE ${whereQuery.queryString}`}${data.groupBy !== undefined && data.groupBy !== "" ? groupByQuery : ""} ${havingQuery.queryString !== "" && data.groupBy !== undefined && data.groupBy !== "" ? havingQuery.queryString : ""} ${optionsQuery !== "" ? optionsQuery : ""}`;
+    const dataTypes = this[tableName].columns;
+    const dataTypesToCheck = [
+      ...whereQuery.queryValues,
+      ...havingQuery.queryValues,
+    ];
+    for (const el of dataTypesToCheck) {
+      typesAndOptions.objectTypesCheckAndColumnName(el, dataTypes);
+    }
+    console.log(query);
+    const result = this.sourceDb.prepare(query).all();
+    return result;
+  }
+  findOne(tableName: string, data: findType): object {
+    let availableColumns;
+    if (data.with !== undefined) {
+      availableColumns = Object.keys(this[tableName].columns);
+      for (const [key, value] of Object.entries(data.with)) {
+        if (value) {
+          const keys = Object.keys(this[key].columns);
+          availableColumns.push(...keys);
+        }
+      }
+    } else {
+      availableColumns = Object.keys(this[tableName].columns);
+    }
+    let selectQuery = QueryFunctions.buildSelect(data, availableColumns);
+    selectQuery = selectQuery.slice(0, -3);
+    const havingQuery = QueryFunctions.buildHaving(data);
+    const whereQuery = QueryFunctions.buildWhere(data);
+    const groupByQuery = QueryOptions.setGroupBy(data.groupBy);
+    const skipQuery = QueryOptions.setSkip(data.skip);
+    const orderByQuery = QueryOptions.setOrderBy(data.orderBy);
+    const joinQuery = Relations.find(tableName, data.with, this[tableName]);
+    const query = `SELECT ${selectQuery} FROM ${tableName} ${joinQuery !== "" || joinQuery !== undefined ? joinQuery : ""} ${whereQuery.queryString === "" ? "" : `WHERE ${whereQuery.queryString}`}${data.groupBy !== undefined && data.groupBy !== "" ? groupByQuery : ""} ${havingQuery.queryString !== "" && data.groupBy !== undefined && data.groupBy !== "" ? havingQuery.queryString : ""} ${orderByQuery !== "" ? orderByQuery : ""} LIMIT 1 ${skipQuery !== undefined ? skipQuery : ""}`;
     const dataTypes = this[tableName].columns;
     const dataTypesToCheck = [
       ...whereQuery.queryValues,
@@ -155,6 +240,7 @@ export class SqlSimplifier {
       query += "  ";
     }
     query = query.slice(0, -2) + ")";
+    console.log(query);
     this.sourceDb.exec(query);
     this[tableName] = {
       columns: {
@@ -163,15 +249,18 @@ export class SqlSimplifier {
       insertOne: this.insertOne.bind(this, tableName),
       insertMany: this.insertMany.bind(this, tableName),
       findMany: this.findMany.bind(this, tableName),
+      findOne: this.findOne.bind(this, tableName),
+      updateOne: this.updateOne.bind(this, tableName),
+      updateMany: this.updateMany.bind(this, tableName),
     };
     return this[tableName];
   }
 
-  showTableSchema(tableName: string): void {
+  showTableSchema(tableName: string): unknown[] {
     const tableInfoQuery = `
         PRAGMA table_info(${tableName})
         `;
     const result = this.sourceDb.prepare(tableInfoQuery);
-    console.table(result.all());
+    return result.all();
   }
 }

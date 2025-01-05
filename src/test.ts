@@ -37,7 +37,7 @@ db.createTable("suppliers", {
   },
   group_id: {
     type: typesAndOptions.types.INT,
-    tableOptions: `${typesAndOptions.options.NN} ${typesAndOptions.options.setforeignkey("group_id", "supplier_groups", "group_id")}`,
+    tableOptions: `${typesAndOptions.options.NN} ${typesAndOptions.options.setforeignkey("group_id", "supplier_groups", "group_id", "cascade")}`,
   },
   supplier_name: {
     type: typesAndOptions.types.TEXT,
@@ -45,7 +45,7 @@ db.createTable("suppliers", {
   },
   company_group_id: {
     type: typesAndOptions.types.INT,
-    tableOptions: `${typesAndOptions.options.NN} ${typesAndOptions.options.setforeignkey("company_group_id", "company_groups", "company_group_id")}`,
+    tableOptions: `${typesAndOptions.options.NN} ${typesAndOptions.options.setforeignkey("company_group_id", "company_groups", "company_group_id", "cascade")}`,
   },
 });
 
@@ -59,11 +59,14 @@ db.createTable("company_groups", {
     tableOptions: `${typesAndOptions.options.NN}`,
   },
 });
+const schema = db.showTableSchema("suppliers");
+console.log(schema);
+
 // db["company_groups"].insertOne({
-//   company_group_name: "KOMPLEX",
+//   company_group_name: "BOMBLEX",
 // });
 console.time("timeApp");
-const data = db["company_groups"].findMany({});
+const data = db["company_groups"].findOne({});
 console.table(data);
 // console.log(supplier_groups, suppliers);
 // db["supplier_groups"].insertOne({
@@ -85,6 +88,9 @@ const suppliersData = db["suppliers"].findMany({
     supplier_groups: true,
     company_groups: true,
   },
+  where: {
+    "supplier_groups.group_id": 1,
+  },
 });
 console.table(suppliersData);
 // db["people"].insertOne({ name: "John", surname: "Doe", age: 25 });
@@ -102,4 +108,11 @@ console.table(suppliersData);
 // });
 // console.log(people.);
 // console.table(data);
+// db["suppliers"].updateMany({
+//   supplier_name: "FROMEX",
+//   company_group_id: 2,
+//   where: {
+//     supplier_id: 1,
+//   },
+// });
 console.timeEnd("timeApp");

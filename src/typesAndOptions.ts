@@ -9,6 +9,7 @@ interface SqlOptions {
     columnname: string,
     foreigntable: string,
     foreigncolumn: string,
+    action: "set null" | "set default" | "restrict" | "no action" | "cascade",
   ): string;
   setdefault(values: string | number): string;
   setcheck(sqlexpression: string): string;
@@ -41,8 +42,14 @@ export class typesAndOptions {
         columnname: string,
         foreigntable: string,
         foreigncolumn: string,
+        action:
+          | "set null"
+          | "set default"
+          | "restrict"
+          | "no action"
+          | "cascade",
       ): string => {
-        return `!Foreign key (${columnname}) references ${foreigntable}(${foreigncolumn})!`;
+        return `!Foreign key (${columnname}) references ${foreigntable}(${foreigncolumn}) on update ${action} on delete ${action}!`;
       },
       setdefault: (values: string | number): string => {
         return `default ${values}`;

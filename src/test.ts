@@ -30,7 +30,7 @@ db.createTable("supplier_groups", {
     tableOptions: `${typesAndOptions.options.NN}`,
   },
 });
-db.createTable("suppliers", {
+const suppliers = db.createTable("suppliers", {
   supplier_id: {
     type: typesAndOptions.types.INT,
     tableOptions: `${typesAndOptions.options.PK} ${typesAndOptions.options.AI}`,
@@ -59,6 +59,8 @@ db.createTable("company_groups", {
     tableOptions: `${typesAndOptions.options.NN}`,
   },
 });
+const result = suppliers.findMany({supplier_name: true})
+console.log(result)
 const schema = db.showTableSchema("suppliers");
 console.log(schema);
 

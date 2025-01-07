@@ -1,13 +1,10 @@
+import { DataTypesInput } from "./types/dataTypes";
+
 export class Relations {
   static find(
     tableName: string,
     data: { [key: string]: boolean },
-    tableColumns: {
-      [key: string]: {
-        type: string;
-        tableOptions: string;
-      };
-    },
+    tableColumns: DataTypesInput
   ): string {
     const queryArrray: string[] = [];
     if (!data) {

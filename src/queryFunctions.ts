@@ -14,7 +14,7 @@ interface returnBuildQueryConditions {
   values: { [key: string]: string | number }[];
 }
 
-import { InputData } from "./app";
+import { InputDataCondition } from "./app";
 export class QueryFunctions {
   static findMatchingColumns(
     availableColumns: Array<string>,
@@ -68,7 +68,7 @@ export class QueryFunctions {
     return selectQuery;
   }
   static buildQueryConditions(
-    data: InputData["or"],
+    data: InputDataCondition,
   ): returnBuildQueryConditions {
     const resultArray: string[] = [];
     const valuesArray: valuesArrayType = [];
@@ -107,7 +107,7 @@ export class QueryFunctions {
         }
         for (const [columnName, columnValues] of Object.entries(el)) {
           if (!SqlSimplifier.invalidColumnNames.includes(columnName)) {
-            let values = columnValues;
+            let values: string | number = columnValues as string | number;
             if (typeof columnValues === "string") {
               values = `'${columnValues}'`;
             }
@@ -121,12 +121,12 @@ export class QueryFunctions {
     }
     return { result: resultArray, values: valuesArray };
   }
-  static or(data: InputData["or"]): returnOptionsData {
+  static or(data: InputDataCondition): returnOptionsData {
     const orQuery: returnBuildQueryConditions = this.buildQueryConditions(data);
     const orQueryString = orQuery.result.join(" OR ");
     return { queryString: orQueryString, queryValues: orQuery.values };
   }
-  static and(data: InputData["or"]): returnOptionsData {
+  static and(data: InputDataCondition): returnOptionsData {
     const andQuery: returnBuildQueryConditions =
       this.buildQueryConditions(data);
     const andQueryString = andQuery.result.join(" AND ");
@@ -205,7 +205,7 @@ export class QueryFunctions {
       queryValues: notBetweenQueryString.queryValues,
     };
   }
-  static notEquals(data: InputData["or"]): returnOptionsData {
+  static notEquals(data: InputDataCondition): returnOptionsData {
     const notEqualArray: returnBuildQueryConditions =
       this.buildQueryConditions(data);
     return {
@@ -214,7 +214,7 @@ export class QueryFunctions {
     };
   }
 
-  static greaterThan(data: InputData["or"]): returnOptionsData {
+  static greaterThan(data: InputDataCondition): returnOptionsData {
     const greaterThanArray: returnBuildQueryConditions =
       this.buildQueryConditions(data);
     return {
@@ -222,7 +222,7 @@ export class QueryFunctions {
       queryValues: greaterThanArray.values,
     };
   }
-  static lessThan(data: InputData["or"]): returnOptionsData {
+  static lessThan(data: InputDataCondition): returnOptionsData {
     const lessThanArray: returnBuildQueryConditions =
       this.buildQueryConditions(data);
     return {
@@ -230,7 +230,7 @@ export class QueryFunctions {
       queryValues: lessThanArray.values,
     };
   }
-  static greaterThanOrEqual(data: InputData["or"]): returnOptionsData {
+  static greaterThanOrEqual(data: InputDataCondition): returnOptionsData {
     const greaterThanOrEqualArray: returnBuildQueryConditions =
       this.buildQueryConditions(data);
     return {
@@ -238,7 +238,7 @@ export class QueryFunctions {
       queryValues: greaterThanOrEqualArray.values,
     };
   }
-  static lessThanOrEqual(data: InputData["or"]): returnOptionsData {
+  static lessThanOrEqual(data: InputDataCondition): returnOptionsData {
     const lessThanOrEqualArray: returnBuildQueryConditions =
       this.buildQueryConditions(data);
     return {
@@ -286,7 +286,7 @@ export class QueryFunctions {
     if ("neq" in data[type]) {
       const notEqualCondition = (
         data[type] as {
-          neq: InputData["or"];
+          neq: InputDataCondition;
         }
       ).neq;
       const result = this.notEquals(notEqualCondition);
@@ -295,7 +295,7 @@ export class QueryFunctions {
     } else if ("gt" in data[type]) {
       const greaterThanCondition = (
         data[type] as {
-          gt: InputData["or"];
+          gt: InputDataCondition;
         }
       ).gt;
       const result = this.greaterThanOrEqual(greaterThanCondition);
@@ -304,7 +304,7 @@ export class QueryFunctions {
     } else if ("lt" in data[type]) {
       const lessThanCondition = (
         data[type] as {
-          lt: InputData["or"];
+          lt: InputDataCondition;
         }
       ).lt;
       const result = this.lessThan(lessThanCondition);
@@ -313,7 +313,7 @@ export class QueryFunctions {
     } else if ("gte" in data[type]) {
       const greaterThanOrEqualCondition = (
         data[type] as {
-          gte: InputData["or"];
+          gte: InputDataCondition;
         }
       ).gte;
       const result = this.greaterThanOrEqual(greaterThanOrEqualCondition);
@@ -322,7 +322,7 @@ export class QueryFunctions {
     } else if ("lte" in data[type]) {
       const lessThanOrEqualCondition = (
         data[type] as {
-          lte: InputData["or"];
+          lte: InputDataCondition;
         }
       ).lte;
       const result = this.lessThanOrEqual(lessThanOrEqualCondition);
@@ -331,7 +331,7 @@ export class QueryFunctions {
     } else if ("or" in data[type]) {
       const orCondition = (
         data[type] as {
-          or: InputData["or"];
+          or: InputDataCondition;
         }
       ).or;
       const result = this.or(orCondition);
@@ -367,7 +367,7 @@ export class QueryFunctions {
     } else if ("and" in data[type]) {
       const andCondition = (
         data[type] as {
-          and: InputData["or"];
+          and: InputDataCondition;
         }
       ).and;
       const result = this.and(andCondition);

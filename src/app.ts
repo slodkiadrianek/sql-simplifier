@@ -1,36 +1,14 @@
 "use strict";
+import { whereHavingType, returnOptionsData } from "./queryFunctions";
+import { orderByType } from "./queryOptions";
 import { QueryOptions } from "./queryOptions";
 import { QueryFunctions } from "./queryFunctions";
 import { DatabaseSync } from "node:sqlite";
 import { InsertAndUpdateData } from "./insertData";
 import { typesAndOptions } from "./typesAndOptions";
 import { Relations } from "./relations";
-// type WhereClause = { [key: string]: string | number | object };
-// type OrderByDirection = "ASC" | "DESC";
-// type OrderByClause = Record<string, OrderByDirection>;
-// type WithClause = Record<string, boolean>;
+import { database } from "./test";
 
-// type findType = {
-//   where?: WhereClause; 
-//   orderBy: OrderByClause[]; 
-//   skip: number; 
-//   limit: number; 
-//   groupBy: string; 
-//   having?: WhereClause; 
-//   with: WithClause; 
-// } & Omit<Record<string, boolean>, "where" | "orderBy" | "skip" | "limit" | "groupBy" | "having" | "with">;
-// type updateType = {
-//   skip: number;
-//   limit: number; 
-//   where?: WhereClause;
-//   orderBy: OrderByClause[]; 
-// } & Omit<Record<string, string | number>, "skip" | "limit" | "where" | "orderBy">;
-// type DeleteType = {
-//   skip: number;
-//   limit: number; 
-//   where?: WhereClause;
-//   orderBy: OrderByClause[]; 
-// }
 type WhereClause = { [key: string]: string | number | object };
 type OrderByClause = { [key: string]: "ASC" | "DESC" };
 type WithClause = Record<string, boolean>;
@@ -52,10 +30,11 @@ type findType = {
 } & {
   with?: WithClause;
 };
+
 type updateType = {
   [key: string]: string | number;
 } & {
-  skip: number;
+  skip?: number;
 } & {
   limit?: number;
 } & {
@@ -63,6 +42,7 @@ type updateType = {
 } & {
   orderBy: OrderByClause[];
 };
+
 export type InputDataCondition = 
   | { and: Array<WhereClause> }
   | { or: Array<WhereClause> }
@@ -73,6 +53,7 @@ export type InputDataCondition =
   | { notIn: [string, Array<string | number>] }
   | { notBetween: [string, [number | string, number | string]] }
   | WhereClause;
+
 export class SqlSimplifier {
   [key: string]: any;
   static readonly invalidColumnNames: ReadonlyArray<string> = [
@@ -93,71 +74,100 @@ export class SqlSimplifier {
     "limit",
     "notLike",
   ];
-  private readonly sourceDb: DatabaseSync;
+
+  public readonly sourceDb: DatabaseSync;
+
   constructor(public readonly pathToDatabase: string) {
     this.sourceDb = new DatabaseSync(pathToDatabase);
   }
-  deleteMany(tableName:string, data:DeleteType):void{
+
+  // Add type compatibility
+  deleteMany( data: updateType): void {
     const whereQuery = QueryFunctions.buildWhere(data);
     const optionsQuery = QueryOptions.buildQueryOptions(data);
-    const query = `Delete from ${tableName} ${whereQuery.queryString === "" ? "" : `WHERE ${whereQuery.queryString}`} ${optionsQuery !== "" ? optionsQuery : ""}`;
-    this.sourceDb.prepare(query).all();
+    const query = `DELETE FROM ${this.tableName} ${
+      whereQuery.queryString === "" ? "" : `WHERE ${whereQuery.queryString}`
+    } ${optionsQuery !== "" ? optionsQuery : ""}`;
+    database.prepare(query).all();
+  }
 
-  }
-  deleteOne(tableName:string, data: DeleteType):void {
+  // Add type compatibility
+  deleteOne( data: updateType): void {
+    let skipQuery:string = '';
     const whereQuery = QueryFunctions.buildWhere(data);
-    const skipQuery = QueryOptions.setSkip(data.skip);
+    if(typeof data.skip === 'number'){
+      skipQuery = QueryOptions.setSkip(data.skip);
+    }
     const orderByQuery = QueryOptions.setOrderBy(data.orderBy);
-    const query = `Delete from ${tableName} ${whereQuery.queryString === "" ? "" : `WHERE ${whereQuery.queryString}`} ${orderByQuery !== "" ? orderByQuery : ""} LIMIT 1 ${skipQuery !== undefined ? skipQuery : ""}`;
-    this.sourceDb.prepare(query).all();
+    const query = `DELETE FROM ${this.tableName} ${
+      whereQuery.queryString === "" ? "" : `WHERE ${whereQuery.queryString}`
+    } ${orderByQuery !== "" ? orderByQuery : ""} LIMIT 1 ${
+      skipQuery !== undefined ? skipQuery : ""
+    }`;
+    database.prepare(query).all();
   }
-  updateOne(tableName: string, data: updateType): void {
-    const availableColumns: string[] = Object.keys(this[tableName].columns);
-    const result = QueryFunctions.findMatchingColumns(
-      availableColumns,
-      data,
-    )[0];
+
+  updateOne(data: updateType): void {
+    let skipQuery:string = ''
+    const availableColumns: string[] = Object.keys(this.columns);
+    const result = QueryFunctions.findMatchingColumns(availableColumns, data)[0];
     const whereQuery = QueryFunctions.buildWhere(data);
-    const skipQuery = QueryOptions.setSkip(data.skip);
+    if(typeof data.skip === 'number'){
+       skipQuery = QueryOptions.setSkip(data.skip);
+    }
     const orderByQuery = QueryOptions.setOrderBy(data.orderBy);
-    const query = `UPDATE ${tableName} SET ${result}=${typeof data[result] === "string" ? `'${data[result]}'` : data[result]} ${whereQuery.queryString === "" ? "" : `WHERE ${whereQuery.queryString}`} ${orderByQuery !== "" ? orderByQuery : ""} LIMIT 1 ${skipQuery !== undefined ? skipQuery : ""}`;
+    const query = `UPDATE ${this.tableName} SET ${result}=${
+      typeof data[result] === "string" ? `'${data[result]}'` : data[result]
+    } ${
+      whereQuery.queryString === "" ? "" : `WHERE ${whereQuery.queryString}`
+    } ${orderByQuery !== "" ? orderByQuery : ""} LIMIT 1 ${
+      skipQuery !== undefined ? skipQuery : ""
+    }`;
     console.log(query);
-    this.sourceDb.prepare(query).all();
+    database.prepare(query).all();
   }
-  updateMany(tableName: string, data: updateType): void {
-    const availableColumns: string[] = Object.keys(this[tableName].columns);
+
+  updateMany( data: updateType): void {
+    const availableColumns: string[] = Object.keys(this.columns);
     const result = QueryFunctions.findMatchingColumns(availableColumns, data);
     const whereQuery = QueryFunctions.buildWhere(data);
     const optionsQuery = QueryOptions.buildQueryOptions(data);
     const columnsToReplaceWithValues: string[] = [];
     for (const el of result) {
       columnsToReplaceWithValues.push(
-        `${el}=${typeof data[el] === "string" ? `'${data[el]}'` : data[el]}`,
+        `${el}=${typeof data[el] === "string" ? `'${data[el]}'` : data[el]}`
       );
     }
-    const query = `UPDATE ${tableName} SET ${columnsToReplaceWithValues.join(", ")}  ${whereQuery.queryString === "" ? "" : `WHERE ${whereQuery.queryString}`} ${optionsQuery !== "" ? optionsQuery : ""}`;
-    this.sourceDb.prepare(query).all();
-  }
-  insertOne(tableName: string, data: Record<string, string| number>): void {
-    const dataTypes = this[tableName].columns;
-    const result = InsertAndUpdateData.insertOne(tableName, data, dataTypes);
-    this.sourceDb.prepare(result.query).run(...result.values);
-  }
-  insertMany(
-    tableName: string,
-    data: Array<Record<string, string | number>>,
-  ): void {
-    const dataTypes = this[tableName].columns;
-    const result = InsertAndUpdateData.insertMany(tableName, data, dataTypes);
-    this.sourceDb.prepare(result.query).run(...result.values);
+    const query = `UPDATE ${this.tableName} SET ${columnsToReplaceWithValues.join(
+      ", "
+    )} ${
+      whereQuery.queryString === "" ? "" : `WHERE ${whereQuery.queryString}`
+    } ${optionsQuery !== "" ? optionsQuery : ""}`;
+    database.prepare(query).all();
   }
 
-  findMany( data: findType): object {
-    console.log(this, data)
+  insertOne( data: Record<string, string | number>): void {
+    const dataTypes = this.columns;
+    const result = InsertAndUpdateData.insertOne(this.tableName, data, dataTypes);
+    database.prepare(result.query).run(...result.values);
+  }
+
+  insertMany(
+    data: Array<Record<string, string | number>>
+  ): void {
+    const dataTypes = this.columns;
+    const result = InsertAndUpdateData.insertMany(this.tableName, data, dataTypes);
+    database.prepare(result.query).run(...result.values);
+  }
+
+  findMany(data: findType): object {
     const tableName = this.tableName;
-    let joinQuery:string = '';
-    let groupByQuery:string = '';
-    let availableColumns;
+    let joinQuery: string = "";
+    let groupByQuery: string = "";
+    let availableColumns: string[];
+    let optionsQuery: string = "";
+    let havingQuery: returnOptionsData = { queryString: "", queryValues: [] };
+
     if (data.with !== undefined) {
       availableColumns = Object.keys(this.columns);
       for (const [key, value] of Object.entries(data.with)) {
@@ -169,36 +179,78 @@ export class SqlSimplifier {
     } else {
       availableColumns = Object.keys(this.columns);
     }
+
     let selectQuery = QueryFunctions.buildSelect(data, availableColumns);
     selectQuery = selectQuery.slice(0, -3);
 
-    const havingQuery = QueryFunctions.buildHaving(data);
+    if (typeof data.groupBy === "string" && data.groupBy !== "") {
+      for (const columnValue of Object.values(data.groupBy)) {
+        if (
+          typeof columnValue !== "object" &&
+          typeof columnValue !== "number" &&
+          typeof columnValue !== "string"
+        ) {
+          console.error(`Invalid group by column ${columnValue}`);
+          return process.exit(1);
+        }
+        const dataToBuildHaving: {
+          groupBy: string;
+          having?: whereHavingType;
+        } = {
+          groupBy: data.groupBy,
+          having: data.having,
+        };
+        havingQuery = QueryFunctions.buildHaving(dataToBuildHaving);
+      }
+    }
+
     const whereQuery = QueryFunctions.buildWhere(data);
-    if(typeof data.limit === 'number' && typeof data.skip === 'number' && typeof data.orderBy === 'object'){
-      for(const el of data.orderBy){
-        for(const columnValue of Object.values(el)){
-            if( columnValue !== 'ASC'){
-                return
-            }
-            if(columnValue !== 'DESC'){
-              return
-            }
+
+    if (
+      typeof data.limit === "number" &&
+      typeof data.skip === "number" &&
+      typeof data.orderBy === "object"
+    ) {
+      for (const el of data.orderBy) {
+        for (const columnValue of Object.values(el)) {
+          if (columnValue !== "ASC" && columnValue !== "DESC") {
+            console.error(`Invalid order by direction ${columnValue}`);
+            return process.exit(1);
           }
         }
       }
-      const values = {
+      const dataToBuildOptions: {
+        limit: number;
+        skip: number;
+        orderBy: orderByType;
+      } = {
         limit: data.limit,
         skip: data.skip,
-        orderBy: data.orderBy
-      }
-      const optionsQuery = QueryOptions.buildQueryOptions(values);
-    if(typeof data.groupBy === 'string'){
+        orderBy: data.orderBy,
+      };
+      optionsQuery = QueryOptions.buildQueryOptions(dataToBuildOptions);
+    }
+
+    if (typeof data.groupBy === "string") {
       groupByQuery = QueryOptions.setGroupBy(data.groupBy);
     }
-    if( typeof data.with === 'object' && data.with !== null ){
-       joinQuery = Relations.find(tableName, data.with, this);
+
+    if (typeof data.with === "object" && data.with !== null) {
+      joinQuery = Relations.find(tableName, data.with, this);
     }
-    const query = `SELECT ${selectQuery} FROM ${tableName} ${joinQuery !== "" || joinQuery !== undefined ? joinQuery : ""} ${whereQuery.queryString === "" ? "" : `WHERE ${whereQuery.queryString}`}${data.groupBy !== undefined && data.groupBy !== "" ? groupByQuery : ""} ${havingQuery.queryString !== "" && data.groupBy !== undefined && data.groupBy !== "" ? havingQuery.queryString : ""} ${optionsQuery !== "" ? optionsQuery : ""}`;
+
+    const query = `SELECT ${selectQuery} FROM ${tableName} ${
+      joinQuery ? joinQuery : ""
+    } ${whereQuery.queryString ? `WHERE ${whereQuery.queryString}` : ""}${
+      data.groupBy ? groupByQuery : ""
+    } ${
+      havingQuery.queryString &&
+      data.groupBy &&
+      data.groupBy !== ""
+        ? havingQuery.queryString
+        : ""
+    } ${optionsQuery ? optionsQuery : ""}`;
+
     const dataTypes = this.columns;
     const dataTypesToCheck = [
       ...whereQuery.queryValues,
@@ -207,12 +259,17 @@ export class SqlSimplifier {
     for (const el of dataTypesToCheck) {
       typesAndOptions.objectTypesCheckAndColumnName(el, dataTypes);
     }
-    console.log(query, this.prepare);
-    const result = this.prepare(query).all();
+    const result = database.prepare(query).all();
     return result;
   }
+
   findOne(tableName: string, data: findType): object {
-    let availableColumns;
+    let availableColumns: string[];
+    let skipQuery:string = '';
+    let orderByQuery:string = '';
+    let groupByQuery:string = '';
+    let joinQuery:string = '';
+    let havingQuery:returnOptionsData = { queryString: "", queryValues: [] }
     if (data.with !== undefined) {
       availableColumns = Object.keys(this[tableName].columns);
       for (const [key, value] of Object.entries(data.with)) {
@@ -224,15 +281,66 @@ export class SqlSimplifier {
     } else {
       availableColumns = Object.keys(this[tableName].columns);
     }
+
     let selectQuery = QueryFunctions.buildSelect(data, availableColumns);
     selectQuery = selectQuery.slice(0, -3);
-    const havingQuery = QueryFunctions.buildHaving(data);
+    if (typeof data.groupBy === "string" && data.groupBy !== "") {
+      for (const columnValue of Object.values(data.groupBy)) {
+        if (
+          typeof columnValue !== "object" &&
+          typeof columnValue !== "number" &&
+          typeof columnValue !== "string"
+        ) {
+          console.error(`Invalid group by column ${columnValue}`);
+          return process.exit(1);
+        }
+        const dataToBuildHaving: {
+          groupBy: string;
+          having?: whereHavingType;
+        } = {
+          groupBy: data.groupBy,
+          having: data.having,
+        };
+        havingQuery = QueryFunctions.buildHaving(dataToBuildHaving);
+      }
+    }
     const whereQuery = QueryFunctions.buildWhere(data);
-    const groupByQuery = QueryOptions.setGroupBy(data.groupBy);
-    const skipQuery = QueryOptions.setSkip(data.skip);
-    const orderByQuery = QueryOptions.setOrderBy(data.orderBy);
-    const joinQuery = Relations.find(tableName, data.with, this[tableName]);
-    const query = `SELECT ${selectQuery} FROM ${tableName} ${joinQuery !== "" || joinQuery !== undefined ? joinQuery : ""} ${whereQuery.queryString === "" ? "" : `WHERE ${whereQuery.queryString}`}${data.groupBy !== undefined && data.groupBy !== "" ? groupByQuery : ""} ${havingQuery.queryString !== "" && data.groupBy !== undefined && data.groupBy !== "" ? havingQuery.queryString : ""} ${orderByQuery !== "" ? orderByQuery : ""} LIMIT 1 ${skipQuery !== undefined ? skipQuery : ""}`;
+    if(typeof data.groupBy === 'string'){
+      groupByQuery = QueryOptions.setGroupBy(data.groupBy);
+    }
+    if(typeof data.skip === 'number'){
+       skipQuery = QueryOptions.setSkip(data.skip);
+    }
+    if (
+      typeof data.orderBy === "object"
+    ) {
+      for (const el of data.orderBy) {
+        for (const columnValue of Object.values(el)) {
+          if (columnValue !== "ASC" && columnValue !== "DESC") {
+            console.error(`Invalid order by direction ${columnValue}`);
+            return process.exit(1);
+          }
+        }
+      }
+       orderByQuery = QueryOptions.setOrderBy(data.orderBy);
+    }
+    if(typeof data.with === 'object'){
+      for(const columnValue of Object.values(data.with)){
+        if(typeof columnValue === 'boolean'){ 
+         joinQuery = Relations.find(tableName, data.with, this[tableName]);
+        }
+      }
+    }
+    const query = `SELECT ${selectQuery} FROM ${tableName} ${
+      joinQuery ? joinQuery : ""
+    } ${whereQuery.queryString ? `WHERE ${whereQuery.queryString}` : ""}${
+      data.groupBy ? groupByQuery : ""
+    } ${
+      havingQuery.queryString && data.groupBy ? havingQuery.queryString : ""
+    } ${orderByQuery ? orderByQuery : ""} LIMIT 1 ${
+      skipQuery !== undefined ? skipQuery : ""
+    }`;
+
     const dataTypes = this[tableName].columns;
     const dataTypesToCheck = [
       ...whereQuery.queryValues,
@@ -241,26 +349,29 @@ export class SqlSimplifier {
     for (const el of dataTypesToCheck) {
       typesAndOptions.objectTypesCheckAndColumnName(el, dataTypes);
     }
+
     console.log(query);
-    const result = this.sourceDb.prepare(query).all();
+    const result = database.prepare(query).all();
     return result;
   }
 
   createTable(
     tableName: string,
-    columns: Record<string, { type: string; tableOptions: string }>,
-  ): {
-    columns: { type: string; tableOptions: string };
-    insertOne: (
-      tableName: string,
-      data: { [key: string]: string | number },
-    ) => void;
-    insertMany: (
-      tableName: string,
-      data: { [key: string]: string | number }[],
-    ) => void;
-    findMany: (data: findType) => object;
-  } {
+    columns: Record<string, { type: string; tableOptions: string }>
+  ):{
+       columns: { type: string; tableOptions: string };
+       insertOne: (
+          data: { [key: string]: string | number },
+       ) => void;
+       insertMany: (
+         data: { [key: string]: string | number }[],
+        ) => void;
+       findMany: (data: findType) => object;
+       findOne: (data:findType) => object;
+       updateOne:(data:updateType) => void;
+       updateMany:(data:updateType) => void;
+
+      }{
     let query: string = `CREATE TABLE IF NOT EXISTS ${tableName} (`;
     const foreignKeys = [];
     for (const [columnName, columnProperties] of Object.entries(columns)) {
@@ -279,39 +390,39 @@ export class SqlSimplifier {
           }
         }
       }
-      query += `${columnName} ${columnProperties.type} ${splittedOptions.join(" ")}, `
+      query += `${columnName} ${columnProperties.type} ${splittedOptions.join(
+        " "
+      )}, `;
     }
     query += foreignKeys.join(",");
     if (foreignKeys.length > 0) {
       query += "  ";
     }
     query = query.slice(0, -2) + ")";
-    console.log(query);
-    console.log(this.sourceDb.prepare)
-    this.sourceDb.exec(query);
+    database.exec(query);
     this[tableName] = {
-      prepare: this.sourceDb.prepare,
-      tableName,
-      columns: {
-        ...columns,
-      },
-      insertOne: this.insertOne,
-      insertMany: this.insertMany,
-      findMany: this.findMany,
-      findOne: this.findOne,
-      updateOne: this.updateOne,
-      updateMany: this.updateMany,
-    };
-    this[tableName].findMany.bind(this[tableName])
-    this[tableName].findOne.bind(this[tableName])
-    return this[tableName];
-  }
-
-  showTableSchema(tableName: string): unknown[] {
-    const tableInfoQuery = `
-        PRAGMA table_info(${tableName})
-        `;
-    const result = this.sourceDb.prepare(tableInfoQuery);
-    return result.all();
-  }
-}
+            tableName,
+            columns: {
+              ...columns,
+            },
+            insertOne: this.insertOne,
+            insertMany: this.insertMany,
+            findMany: this.findMany,
+            findOne: this.findOne,
+            updateOne: this.updateOne,
+            updateMany: this.updateMany,
+          };
+          this[tableName].findMany.bind(this[tableName])
+          this[tableName].findOne.bind(this[tableName])
+          this[tableName].insertOne.bind(this[tableName])
+          return this[tableName];
+        }
+      
+        showTableSchema(tableName: string): unknown[] {
+          const tableInfoQuery = `
+              PRAGMA table_info(${tableName})
+              `;
+          const result = database.prepare(tableInfoQuery);
+          return result.all();
+        }
+      }

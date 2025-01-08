@@ -1,4 +1,4 @@
-type orderByType = { [key: string]: "ASC" | "DESC" }[];
+export type orderByType = { [key: string]: "ASC" | "DESC" }[];
 export class QueryOptions {
   static setLimit(limit: number): string {
     return `LIMIT ${limit}`;

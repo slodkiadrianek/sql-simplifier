@@ -3,8 +3,8 @@ type inputSelectdata = {
   [key: string]: boolean | object;
 };
 type valuesArrayType = { [key: string]: string | number }[];
-type whereHavingType = { [key: string]: number | string | object };
-interface returnOptionsData {
+export type whereHavingType = { [key: string]: number | string | object };
+export interface returnOptionsData {
   queryString: string;
   queryValues: { [key: string]: string | number }[];
 }

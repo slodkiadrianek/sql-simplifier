@@ -38,12 +38,14 @@ export class QueryFunctions {
     data: inputSelectdata,
     availableColumns: string[],
   ): string {
+    console.log(data)
     let distinctColumn = "";
     let countColumnsString = "";
     const commonColumns = QueryFunctions.findMatchingColumns(
       availableColumns,
       data,
     ).join(",");
+
     if (typeof data.distinct === "object" && data.distinct !== null) {
       distinctColumn = QueryFunctions.findMatchingColumns(
         availableColumns,
@@ -64,6 +66,7 @@ export class QueryFunctions {
       countColumnsString = countColumns.join(", ");
     }
     let selectQuery = ` ${distinctColumn !== "" ? distinctColumn + "," : ""} ${countColumnsString !== "" ? countColumnsString + "," : ""} ${commonColumns !== "" ? commonColumns + " ," : ""} `;
+    console.log(`HAJ`,commonColumns)
     if (selectQuery.length <= 4) selectQuery = "*   ";
     return selectQuery;
   }

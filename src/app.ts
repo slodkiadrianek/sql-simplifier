@@ -3,7 +3,6 @@ import { whereHavingType, returnOptionsData } from "./queryFunctions";
 import { orderByType } from "./queryOptions";
 import { QueryOptions } from "./queryOptions";
 import { QueryFunctions } from "./queryFunctions";
-import { DatabaseSync } from "node:sqlite";
 import { InsertAndUpdateData } from "./insertData";
 import { typesAndOptions } from "./typesAndOptions";
 import { Relations } from "./relations";
@@ -12,28 +11,22 @@ import { database } from "./test";
 type WhereClause = { [key: string]: string | number | object };
 type OrderByClause = { [key: string]: "ASC" | "DESC" };
 type WithClause = Record<string, boolean>;
+
 type findType = {
+  select?:{
+    [key:string]: boolean
+  }
   where?: WhereClause;
-} & {
-  [key: string]: boolean;
-} & {
-  orderBy?: {
-    [key: string]: "ASC" | "DESC";
-  }[];
-} & {
+  orderBy?: OrderByClause[];
   skip?: number;
-} & {
   limit?: number;
-} & {
   groupBy?: string;
   having?: WhereClause;
-} & {
   with?: WithClause;
-};
+} 
 
-type updateType = {
-  [key: string]: string | number;
-} & {
+
+type DeleteType =  {
   skip?: number;
 } & {
   limit?: number;
@@ -42,6 +35,11 @@ type updateType = {
 } & {
   orderBy: OrderByClause[];
 };
+
+
+type UpdateType = {
+  [key:string]: string | number
+} & DeleteType
 
 export type InputDataCondition = 
   | { and: Array<WhereClause> }
@@ -75,14 +73,13 @@ export class SqlSimplifier {
     "notLike",
   ];
 
-  public readonly sourceDb: DatabaseSync;
+
 
   constructor(public readonly pathToDatabase: string) {
-    this.sourceDb = new DatabaseSync(pathToDatabase);
   }
 
   // Add type compatibility
-  deleteMany( data: updateType): void {
+  deleteMany( data: DeleteType): void {
     const whereQuery = QueryFunctions.buildWhere(data);
     const optionsQuery = QueryOptions.buildQueryOptions(data);
     const query = `DELETE FROM ${this.tableName} ${
@@ -92,7 +89,7 @@ export class SqlSimplifier {
   }
 
   // Add type compatibility
-  deleteOne( data: updateType): void {
+  deleteOne( data: DeleteType): void {
     let skipQuery:string = '';
     const whereQuery = QueryFunctions.buildWhere(data);
     if(typeof data.skip === 'number'){
@@ -107,7 +104,7 @@ export class SqlSimplifier {
     database.prepare(query).all();
   }
 
-  updateOne(data: updateType): void {
+  updateOne(data: UpdateType): void {
     let skipQuery:string = ''
     const availableColumns: string[] = Object.keys(this.columns);
     const result = QueryFunctions.findMatchingColumns(availableColumns, data)[0];
@@ -123,11 +120,10 @@ export class SqlSimplifier {
     } ${orderByQuery !== "" ? orderByQuery : ""} LIMIT 1 ${
       skipQuery !== undefined ? skipQuery : ""
     }`;
-    console.log(query);
     database.prepare(query).all();
   }
 
-  updateMany( data: updateType): void {
+  updateMany( data: UpdateType): void {
     const availableColumns: string[] = Object.keys(this.columns);
     const result = QueryFunctions.findMatchingColumns(availableColumns, data);
     const whereQuery = QueryFunctions.buildWhere(data);
@@ -166,8 +162,8 @@ export class SqlSimplifier {
     let groupByQuery: string = "";
     let availableColumns: string[];
     let optionsQuery: string = "";
+    let selectQuery:string = ''
     let havingQuery: returnOptionsData = { queryString: "", queryValues: [] };
-
     if (data.with !== undefined) {
       availableColumns = Object.keys(this.columns);
       for (const [key, value] of Object.entries(data.with)) {
@@ -179,8 +175,17 @@ export class SqlSimplifier {
     } else {
       availableColumns = Object.keys(this.columns);
     }
-
-    let selectQuery = QueryFunctions.buildSelect(data, availableColumns);
+    if(typeof data.select === 'object'){
+      for(const values of Object.values(data.select)){
+        if(typeof values !== 'boolean'){
+          console.error('Wrond type provided, it must be a boolean')
+          process.exit(1)
+        }
+      }
+       selectQuery = QueryFunctions.buildSelect(data.select, availableColumns);
+    }else{
+      selectQuery = "*   "
+    }
     selectQuery = selectQuery.slice(0, -3);
 
     if (typeof data.groupBy === "string" && data.groupBy !== "") {
@@ -259,19 +264,21 @@ export class SqlSimplifier {
     for (const el of dataTypesToCheck) {
       typesAndOptions.objectTypesCheckAndColumnName(el, dataTypes);
     }
+    console.log(query);
     const result = database.prepare(query).all();
     return result;
   }
 
-  findOne(tableName: string, data: findType): object {
+  findOne( data: findType): object {
     let availableColumns: string[];
     let skipQuery:string = '';
     let orderByQuery:string = '';
     let groupByQuery:string = '';
     let joinQuery:string = '';
+    let selectQuery:string = '';
     let havingQuery:returnOptionsData = { queryString: "", queryValues: [] }
     if (data.with !== undefined) {
-      availableColumns = Object.keys(this[tableName].columns);
+      availableColumns = Object.keys(this.columns);
       for (const [key, value] of Object.entries(data.with)) {
         if (value) {
           const keys = Object.keys(this[key].columns);
@@ -279,10 +286,18 @@ export class SqlSimplifier {
         }
       }
     } else {
-      availableColumns = Object.keys(this[tableName].columns);
+      availableColumns = Object.keys(this.columns);
+    }
+    if(typeof data.select === 'object'){
+      for(const values of Object.values(data.select)){
+        if(typeof values !== 'boolean'){
+          console.error('Wrond type provided, it must be a boolean')
+          process.exit(1)
+        }
+      }
+       selectQuery = QueryFunctions.buildSelect(data.select, availableColumns);
     }
 
-    let selectQuery = QueryFunctions.buildSelect(data, availableColumns);
     selectQuery = selectQuery.slice(0, -3);
     if (typeof data.groupBy === "string" && data.groupBy !== "") {
       for (const columnValue of Object.values(data.groupBy)) {
@@ -327,11 +342,11 @@ export class SqlSimplifier {
     if(typeof data.with === 'object'){
       for(const columnValue of Object.values(data.with)){
         if(typeof columnValue === 'boolean'){ 
-         joinQuery = Relations.find(tableName, data.with, this[tableName]);
+         joinQuery = Relations.find(this.tableName, data.with, this);
         }
       }
     }
-    const query = `SELECT ${selectQuery} FROM ${tableName} ${
+    const query = `SELECT ${selectQuery} FROM ${this.tableName} ${
       joinQuery ? joinQuery : ""
     } ${whereQuery.queryString ? `WHERE ${whereQuery.queryString}` : ""}${
       data.groupBy ? groupByQuery : ""
@@ -341,7 +356,7 @@ export class SqlSimplifier {
       skipQuery !== undefined ? skipQuery : ""
     }`;
 
-    const dataTypes = this[tableName].columns;
+    const dataTypes = this.columns;
     const dataTypesToCheck = [
       ...whereQuery.queryValues,
       ...havingQuery.queryValues,
@@ -368,8 +383,11 @@ export class SqlSimplifier {
         ) => void;
        findMany: (data: findType) => object;
        findOne: (data:findType) => object;
-       updateOne:(data:updateType) => void;
-       updateMany:(data:updateType) => void;
+       updateOne:(data:UpdateType) => void;
+       updateMany:(data:UpdateType) => void;
+       deleteOne:(data:DeleteType) => void;
+       deleteMany:(data:DeleteType) => void;
+
 
       }{
     let query: string = `CREATE TABLE IF NOT EXISTS ${tableName} (`;
@@ -411,10 +429,18 @@ export class SqlSimplifier {
             findOne: this.findOne,
             updateOne: this.updateOne,
             updateMany: this.updateMany,
+            deleteMany: this.deleteMany,
+            deleteOne: this.deleteOne
           };
-          this[tableName].findMany.bind(this[tableName])
-          this[tableName].findOne.bind(this[tableName])
-          this[tableName].insertOne.bind(this[tableName])
+
+          this[tableName].findMany.bind(this[tableName]);
+          this[tableName].findOne.bind(this[tableName]);
+          this[tableName].insertOne.bind(this[tableName]);
+          this[tableName].insertMany.bind(this[tableName]);
+          this[tableName].updateMany.bind(this[tableName]);
+          this[tableName].updateOne.bind(this[tableName]);
+          this[tableName].deleteMany.bind(this[tableName]);
+          this[tableName].deleteOne.bind(this[tableName]);
           return this[tableName];
         }
       

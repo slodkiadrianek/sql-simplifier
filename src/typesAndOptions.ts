@@ -34,10 +34,10 @@ export class typesAndOptions {
   }
   static get options(): SqlOptions {
     return {
-      PK: "primary key",
-      AI: "autoincrement",
-      NN: "not null",
-      UQ: "unique",
+      PK: "PRIMARY KEY",
+      AI: "AUTOINCREMENT",
+      NN: "NOT NULL",
+      UQ: "UNIQUE",
       setforeignkey: (
         columnname: string,
         foreigntable: string,

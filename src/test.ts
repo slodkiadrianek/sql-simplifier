@@ -1,112 +1,186 @@
 import { SqlSimplifier } from "./app";
 import { DatabaseSync } from "node:sqlite";
-
 import { typesAndOptions } from "./typesAndOptions";
 export const pathToDatabase: string = './test.db';
 export const database = new DatabaseSync(pathToDatabase)
 const db = new SqlSimplifier(pathToDatabase);
-const supplier_groups = db.createTable("supplier_groups", {
-  group_id: {
+const users = db.createTable("users", {
+  id:{
     type: typesAndOptions.types.INT,
-    tableOptions: `${typesAndOptions.options.PK} ${typesAndOptions.options.AI}`,
+    tableOptions: `${typesAndOptions.options.PK} ${typesAndOptions.options.AI} `
   },
-  group_name: {
+  name:{
     type: typesAndOptions.types.TEXT,
-    tableOptions: `${typesAndOptions.options.NN}`,
+    tableOptions: typesAndOptions.options.NN
   },
-});
-const suppliers = db.createTable("suppliers", {
-  supplier_id: {
-    type: typesAndOptions.types.INT,
-    tableOptions: `${typesAndOptions.options.PK} ${typesAndOptions.options.AI}`,
-  },
-  group_id: {
-    type: typesAndOptions.types.INT,
-    tableOptions: `${typesAndOptions.options.NN} ${typesAndOptions.options.setforeignkey("group_id", "supplier_groups", "group_id", "cascade")}`,
-  },
-  supplier_name: {
+  email: {
     type: typesAndOptions.types.TEXT,
-    tableOptions: `${typesAndOptions.options.NN}`,
-  },
-  company_group_id: {
+    tableOptions: typesAndOptions.options.NN
+  }
+})
+const posts = db.createTable("posts", {
+  id:{
     type: typesAndOptions.types.INT,
-    tableOptions: `${typesAndOptions.options.NN} ${typesAndOptions.options.setforeignkey("company_group_id", "company_groups", "company_group_id", "cascade")}`,
+    tableOptions: ` ${typesAndOptions.options.PK} ${typesAndOptions.options.AI} `
   },
-});
+  user_id:{
+    type: typesAndOptions.types.INT,
+    tableOptions: `${typesAndOptions.options.NN} ${typesAndOptions.options.setforeignkey('user_id', 'users', 'id', 'cascade')}`
+  },
+  title:{
+    type: typesAndOptions.types.TEXT,
+    tableOptions: typesAndOptions.options.NN
+  },
+  category_id:{
+    type: typesAndOptions.types.INT,
+    tableOptions: `${typesAndOptions.options.NN} ${typesAndOptions.options.setforeignkey('category_id', 'categories', 'id', 'cascade')}`
+  },
+  tag_id:{
+    type: typesAndOptions.types.INT,
+    tableOptions: `${typesAndOptions.options.NN} ${typesAndOptions.options.setforeignkey('tag_id','tags', 'id', 'cascade')}`
+  },
+  content:{
+    type:typesAndOptions.types.TEXT,
+    tableOptions: typesAndOptions.options.NN
+  }
+})
 
-const company_groups = db.createTable("company_groups", {
-  company_group_id: {
+const comments = db.createTable('comments',{
+  id:{
     type: typesAndOptions.types.INT,
-    tableOptions: `${typesAndOptions.options.PK} ${typesAndOptions.options.AI}`,
+    tableOptions: ` ${typesAndOptions.options.PK} ${typesAndOptions.options.AI} `
   },
-  company_group_name: {
+  post_id:{
+    type:typesAndOptions.types.INT,
+    tableOptions: `${typesAndOptions.options.NN} ${typesAndOptions.options.setforeignkey('post_id', 'posts', 'id', 'cascade')}`
+  },
+  user_id:{
+    type: typesAndOptions.types.INT,
+    tableOptions: `${typesAndOptions.options.NN} ${typesAndOptions.options.setforeignkey('user_id', 'users', 'id', 'cascade')}`
+  }
+}) 
+
+const categories = db.createTable('categories', {
+  id:{
+    type: typesAndOptions.types.INT,
+    tableOptions: `${typesAndOptions.options.PK} ${typesAndOptions.options.AI} `
+  },
+  name:{
     type: typesAndOptions.types.TEXT,
-    tableOptions: `${typesAndOptions.options.NN}`,
+    tableOptions: `${typesAndOptions.options.NN} ${typesAndOptions.options.UQ}`
+  }
+})
+
+const tags = db.createTable('tags', {
+  id:{
+    type: typesAndOptions.types.INT,
+    tableOptions: `${typesAndOptions.options.PK} ${typesAndOptions.options.AI} `
   },
-});
-// suppliers.insertOne({
-// group_id: 1,
-// supplier_name: 'FOMPLEX',
-// company_group_id:1
-// })
+  name:{
+    type: typesAndOptions.types.TEXT,
+    tableOptions: typesAndOptions.options.NN
+  }
+})
+
+const likes = db.createTable('likes', {
+  id:{
+    type: typesAndOptions.types.INT,
+    tableOptions: `${typesAndOptions.options.PK} ${typesAndOptions.options.AI} `
+  },
+  user_id:{
+    type: typesAndOptions.types.INT,
+    tableOptions: `${typesAndOptions.options.NN} ${typesAndOptions.options.setforeignkey('user_id', 'users', 'id', 'cascade')}`
+  },
+  post_id:{
+    type: typesAndOptions.types.INT,
+    tableOptions: `${typesAndOptions.options.NN} ${typesAndOptions.options.setforeignkey('post_id', 'posts', 'id', 'cascade')}`
+  }
+})
+
 console.time("timeApp");
-const result = suppliers.findMany({})
-console.table(result)
-const schema = db.showTableSchema("suppliers");
-console.table(schema);
-console.table(supplier_groups.findMany({}))
-console.table(company_groups.findMany({}))
+console.log(`USERS`);
+console.table(users.columns)
+console.log(`POSTS`);
+console.table(posts.columns)
+console.log('COMMENTS')
+console.table(comments.columns)
+console.log(`Categories`);
+console.table(categories.columns)
+console.log(`TAGS`)
+console.table(tags.columns)
+console.log('LIKES')
+console.table(likes.columns)
+console.log(`--------------------------------------------------------------------------------------------------------------------`);
 
-// // db["company_groups"].insertOne({
-// //   company_group_name: "BOMBLEX",
-// // });
-// const data = db["company_groups"].findOne({});
-// console.table(data);
-// // console.log(supplier_groups, suppliers);
-// // db["supplier_groups"].insertOne({
-// //   group_name: "Foliarze",
-// // });
-// const data2 = db["supplier_groups"].findMany({});
-// console.table(data2);
-// // db["suppliers"].insertOne({
-// //   group_id: 1,
-// //   supplier_name: "FOLIOTEX",
-// //   company_group_id: 1,
-// // });
-// const suppliersData = db["suppliers"].findMany({
-//   group_name: true,
-//   "company_groups.company_group_name": true,
-//   "suppliers.supplier_name": true,
-//   "supplier_groups.group_id": true,
-//   with: {
-//     supplier_groups: true,
-//     company_groups: true,
-//   },
-//   where: {
-//     "supplier_groups.group_id": 1,
-//   },
+// const firstNames = ['James', 'Mary', 'John', 'Patricia', 'Robert', 'Jennifer', 'Michael', 'Linda', 'William', 'Elizabeth'];
+// const lastNames = ['Smith', 'Johnson', 'Williams', 'Brown', 'Jones', 'Garcia', 'Miller', 'Davis', 'Rodriguez', 'Martinez'];
+
+// const generateRandomName = () => {
+//   const firstName = firstNames[Math.floor(Math.random() * firstNames.length)];
+//   const lastName = lastNames[Math.floor(Math.random() * lastNames.length)];
+//   return `${firstName} ${lastName}`;
+// };
+
+// const generateEmail = (name:any) => {
+//   return `${name.toLowerCase().replace(' ', '.')}@example.com`;
+// };
+
+// const dataToInsert:any = []
+// const mockUsers = Array.from({ length: 10000 }, () => {
+//   const name = generateRandomName();
+//  dataToInsert.push({
+//     name: name,
+//     email: generateEmail(name)
+//   });
 // });
-// console.table(suppliersData);
-// // db["people"].insertOne({ name: "John", surname: "Doe", age: 25 });
-// // db["people"].insertMany([
-// //   { name: "John", surname: "Doe", age: 25 },
-// //   { name: "Jane", surname: "Doe", age: 24 },
-// //   { name: "Michał", surname: "Kowalski", age: 30 },
-// // ]);
-// // const data = db["people"].findMany({
-// //   groupBy: "name",
-// //   count: {
-// //     age: true,
-// //   },
-// //   name: true,
-// // });
-// // console.log(people.);
-// // console.table(data);
-// // db["suppliers"].updateMany({
-// //   supplier_name: "FROMEX",
-// //   company_group_id: 2,
-// //   where: {
-// //     supplier_id: 1,
-// //   },
-// // });
+// console.log(dataToInsert);
+// users.insertMany(dataToInsert)
+// const generateCategories = () => {
+//   const domains = [
+//     'Electronics', 'Fashion', 'Home', 'Sports', 'Beauty', 'Food', 'Health', 'Auto', 'Garden', 'Books',
+//     'Toys', 'Art', 'Music', 'Tools', 'Office', 'Pets', 'Travel', 'Fitness', 'Baby', 'Jewelry'
+//   ];
+
+//   const modifiers = [
+//     'Professional', 'Premium', 'Basic', 'Luxury', 'Essential', 'Classic', 'Modern', 'Vintage', 'Smart', 'Eco',
+//     'Digital', 'Organic', 'Custom', 'Designer', 'Handmade', 'Natural', 'Tech', 'Traditional', 'Portable', 'Deluxe'
+//   ];
+
+//   const types = [
+//     'Accessories', 'Equipment', 'Supplies', 'Solutions', 'Products', 'Sets', 'Systems', 'Essentials', 'Collections', 'Kits',
+//     'Tools', 'Gear', 'Items', 'Packages', 'Components', 'Bundles', 'Materials', 'Resources', 'Units', 'Elements'
+//   ];
+
+//   const categories = [];
+  
+//   for (let i = 0; i < domains.length; i++) {
+//     for (let j = 0; j < modifiers.length; j++) {
+//       for (let k = 0; k < Math.ceil(500 / (domains.length * modifiers.length)); k++) {
+//         const type = types[k % types.length];
+//         categories.push({
+//           name: `${modifiers[j]} ${domains[i]} ${type}`
+//         });
+//       }
+//     }
+//   }
+
+//   return categories.slice(0, 500);
+// };
+
+// const mockCategories = generateCategories();
+// console.log(mockCategories);
+// categories.insertMany(mockCategories)
+console.table(users.findMany({
+  select:{
+    name:true
+  },
+  where:{
+    name: 'James Smith'
+  }
+}))
+console.table(categories.findMany({
+  where:{
+    name: 'Deluxe Art Accessories'
+  }
+}));
 console.timeEnd("timeApp");

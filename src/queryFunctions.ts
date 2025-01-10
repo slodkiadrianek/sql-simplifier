@@ -1,4 +1,5 @@
-import { SqlSimplifier } from "./app";
+import { SqlSimplifier } from "./app.js";
+import { InputDataCondition } from "./app.js";
 type inputSelectdata = {
   [key: string]: boolean | object;
 };
@@ -14,7 +15,6 @@ interface returnBuildQueryConditions {
   values: { [key: string]: string | number }[];
 }
 
-import { InputDataCondition } from "./app";
 export class QueryFunctions {
   static findMatchingColumns(
     availableColumns: Array<string>,

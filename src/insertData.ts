@@ -1,5 +1,5 @@
-import { DataTypesInput, inputData } from "./types/dataTypes";
-import { typesAndOptions } from "./typesAndOptions";
+import { DataTypesInput, inputData } from "./types/dataTypes.js";
+import { typesAndOptions } from "./typesAndOptions.js";
 interface returnInsertData {
   query: string;
   values: Array<string | number>;

@@ -1,5 +1,5 @@
-import { DataTypesInput, inputData } from "./types/dataTypes";
-import { SqlSimplifier } from "./app";
+import { DataTypesInput, inputData } from "./types/dataTypes.js";
+import { SqlSimplifier } from "./app.js";
 interface SqlOptions {
   PK: string;
   AI: string;
@@ -75,25 +75,28 @@ export class typesAndOptions {
         return false;
     }
   }
+
+  static isRightName(columnName: string):void{
+    const isRightName = SqlSimplifier.invalidColumnNames.includes(columnName);
+      if (isRightName) {
+        console.error(`You cannot use the column name ${columnName}`);
+        console.timeEnd("timeApp");
+        process.exit(1);
+      }
+  }
   static objectTypesCheckAndColumnName(
     data: inputData,
     dataTypes: DataTypesInput,
   ): void {
     for (const [columnName, columnValue] of Object.entries(data)) {
       const result = this.typeChecking(columnValue, dataTypes[columnName].type);
-      const isRightName = SqlSimplifier.invalidColumnNames.includes(columnName);
-      if (isRightName) {
-        console.error(`You cannot use the column name ${columnName}`);
-        console.timeEnd("timeApp");
-        process.exit(1);
-      }
       if (!result) {
         console.error(
           `The value ${columnValue} is not of type ${dataTypes[columnName].type}`,
         );
-        console.timeEnd("timeApp");
         process.exit(1);
       }
+      this.isRightName(columnName)
     }
   }
 }

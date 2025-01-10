@@ -1,4 +1,4 @@
-import { DataTypesInput } from "./types/dataTypes";
+import { DataTypesInput } from "./types/dataTypes.js";
 
 export class Relations {
   static find(

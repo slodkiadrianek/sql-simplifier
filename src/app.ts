@@ -1,12 +1,12 @@
 "use strict";
-import { whereHavingType, returnOptionsData } from "./queryFunctions";
-import { orderByType } from "./queryOptions";
-import { QueryOptions } from "./queryOptions";
-import { QueryFunctions } from "./queryFunctions";
-import { InsertAndUpdateData } from "./insertData";
-import { typesAndOptions } from "./typesAndOptions";
-import { Relations } from "./relations";
-import { database } from "./test";
+import { whereHavingType, returnOptionsData } from "./queryFunctions.js";
+import { orderByType } from "./queryOptions.js";
+import { QueryOptions } from "./queryOptions.js";
+import { QueryFunctions } from "./queryFunctions.js";
+import { InsertAndUpdateData } from "./insertData.js";
+import { typesAndOptions } from "./typesAndOptions.js";
+import { Relations } from "./relations.js";
+// import { database } from "./test.js";
 
 type WhereClause = { [key: string]: string | number | object };
 type OrderByClause = { [key: string]: "ASC" | "DESC" };

@@ -3,11 +3,12 @@
   "version": "1.0.0",
   "description": "SQL-Simplifier is a tool designed to help users handle long SQL queries. The project uses the built-in Node.js package for SQLite, currently available in version 23.4.0, and it is still under active development. The database is stored in an SQLite file, and users must specify the path to the database file when creating a new instance of SQL-Simplifier.",
   "main": "app.js",
+  "type": "module",
   "scripts": {
     "start": "node ./dist/app.js",
     "build": "tsc",
     "dev": "npx tsx watch ./src/test.ts",
-    "test": "vitest run --pool=forks",
+    "test": "npx tsx --test  ./**/*.test.ts",
     "eslint": "npx eslint **/*.ts"
   },
   "repository": {

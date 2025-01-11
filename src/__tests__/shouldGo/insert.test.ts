@@ -1,19 +1,11 @@
 import { describe, it } from "node:test";
 import assert from "node:assert";
-import {
-  tableName,
-  dataTypesToCheckGO,
-  expectedTypes,
-} from "../data/dataTypes.test.js";
+import { tableName, dataTypesToCheckGO } from "../data/dataTypes.test.js";
 import { InsertAndUpdateData } from "../../insertData.js";
 
-describe("insert test", () => {
+describe("Go insert test", () => {
   it("insertOne check", () => {
-    const result = InsertAndUpdateData.insertOne(
-      tableName,
-      dataTypesToCheckGO,
-      expectedTypes
-    );
+    const result = InsertAndUpdateData.insertOne(tableName, dataTypesToCheckGO);
     assert.equal(
       result.query,
       "INSERT INTO sql(int, float, boolean, datetime, text) VALUES(?, ?, ?, ?, ?)"
@@ -24,11 +16,9 @@ describe("insert test", () => {
     );
   });
   it("insertMany check with one set of data", () => {
-    const result = InsertAndUpdateData.insertMany(
-      tableName,
-      [dataTypesToCheckGO],
-      expectedTypes
-    );
+    const result = InsertAndUpdateData.insertMany(tableName, [
+      dataTypesToCheckGO,
+    ]);
     assert.equal(
       result.query,
       "INSERT INTO sql(int, float, boolean, datetime, text) VALUES(?, ?, ?, ?, ?)"
@@ -39,11 +29,10 @@ describe("insert test", () => {
     );
   });
   it("insertMany check with more than one set of data", () => {
-    const result = InsertAndUpdateData.insertMany(
-      tableName,
-      [dataTypesToCheckGO, dataTypesToCheckGO],
-      expectedTypes
-    );
+    const result = InsertAndUpdateData.insertMany(tableName, [
+      dataTypesToCheckGO,
+      dataTypesToCheckGO,
+    ]);
     assert.equal(
       result.query,
       "INSERT INTO sql(int, float, boolean, datetime, text) VALUES(?, ?, ?, ?, ?), (?, ?, ?, ?, ?)"

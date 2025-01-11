@@ -4,19 +4,17 @@ export class QueryOptions {
     return `LIMIT ${limit}`;
   }
   static setSkip(skip: number): string {
-    if (!skip) return "";
     return `OFFSET ${skip}`;
   }
   static setGroupBy(columnName: string): string {
     return `GROUP BY ${columnName}`;
   }
   static setOrderBy(data: orderByType): string {
-    if (!data) {
-      return "";
-    }
     const orderBy: string[] = [];
-    for (const [columnName, type] of Object.entries(data)) {
-      orderBy.push(`ORDER BY ${columnName} ${type}`);
+    for (const el of data) {
+      for (const [columnName, type] of Object.entries(el)) {
+        orderBy.push(`ORDER BY ${columnName} ${type}`);
+      }
     }
     return orderBy.join(" , ");
   }

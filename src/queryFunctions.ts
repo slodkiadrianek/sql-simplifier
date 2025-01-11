@@ -17,9 +17,9 @@ interface returnBuildQueryConditions {
 
 export class QueryFunctions {
   static findMatchingColumns(
-    availableColumns: Array<string>,
-    data: object,
-  ): Array<string> {
+    availableColumns: string[],
+    data: object
+  ): string[] {
     const matchingColumns = [];
     for (const [columnName, columnValues] of Object.entries(data)) {
       let columnNameChecked: string = "";
@@ -36,20 +36,19 @@ export class QueryFunctions {
   }
   static buildSelect(
     data: inputSelectdata,
-    availableColumns: string[],
+    availableColumns: string[]
   ): string {
-    console.log(data)
     let distinctColumn = "";
     let countColumnsString = "";
     const commonColumns = QueryFunctions.findMatchingColumns(
       availableColumns,
-      data,
+      data
     ).join(",");
 
     if (typeof data.distinct === "object" && data.distinct !== null) {
       distinctColumn = QueryFunctions.findMatchingColumns(
         availableColumns,
-        data.distinct,
+        data.distinct
       )[0];
       if (distinctColumn.length > 0) {
         distinctColumn = `DISTINCT ${distinctColumn}`;
@@ -60,18 +59,19 @@ export class QueryFunctions {
     if (typeof data.count === "object" && data.count !== null) {
       let countColumns = QueryFunctions.findMatchingColumns(
         availableColumns,
-        data.count,
+        data.count
       );
       countColumns = countColumns.map((el: string): string => `COUNT(${el})`);
       countColumnsString = countColumns.join(", ");
     }
-    let selectQuery = ` ${distinctColumn !== "" ? distinctColumn + "," : ""} ${countColumnsString !== "" ? countColumnsString + "," : ""} ${commonColumns !== "" ? commonColumns + " ," : ""} `;
-    console.log(`HAJ`,commonColumns)
+    let selectQuery = ` ${distinctColumn !== "" ? distinctColumn + "," : ""} ${
+      countColumnsString !== "" ? countColumnsString + "," : ""
+    } ${commonColumns !== "" ? commonColumns + " ," : ""} `;
     if (selectQuery.length <= 4) selectQuery = "*   ";
     return selectQuery;
   }
   static buildQueryConditions(
-    data: InputDataCondition,
+    data: InputDataCondition
   ): returnBuildQueryConditions {
     const resultArray: string[] = [];
     const valuesArray: valuesArrayType = [];
@@ -136,7 +136,7 @@ export class QueryFunctions {
     return { queryString: andQueryString, queryValues: andQuery.values };
   }
   static between(
-    data: Array<string & Array<number | string>>,
+    data: Array<string & Array<number | string>>
   ): returnOptionsData {
     const columnName: string = data[0];
     const betweenQueryValues: { [key: string]: string } = {};
@@ -171,7 +171,7 @@ export class QueryFunctions {
     };
   }
   static notIn(
-    data: Array<string & Array<string | number>>,
+    data: Array<string & Array<string | number>>
   ): returnOptionsData {
     const notInQueryString = this.in(data);
     return {
@@ -197,13 +197,13 @@ export class QueryFunctions {
     return result.replace("LIKE", "NOT LIKE");
   }
   static notBetween(
-    data: Array<string & Array<string | number>>,
+    data: Array<string & Array<string | number>>
   ): returnOptionsData {
     const notBetweenQueryString = this.between(data);
     return {
       queryString: notBetweenQueryString.queryString.replace(
         "BETWEEN",
-        "NOT BETWEEN",
+        "NOT BETWEEN"
       ),
       queryValues: notBetweenQueryString.queryValues,
     };
@@ -254,7 +254,7 @@ export class QueryFunctions {
       where?: whereHavingType;
       having?: whereHavingType;
     },
-    type: "where" | "having",
+    type: "where" | "having"
   ): returnOptionsData {
     const resultArray: string[] = [];
     const valuesArray: valuesArrayType = [];

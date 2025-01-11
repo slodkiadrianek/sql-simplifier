@@ -1,19 +1,10 @@
-import { DataTypesInput, inputData } from "./types/dataTypes.js";
-import { typesAndOptions } from "./typesAndOptions.js";
+import { inputData } from "./types/dataTypes.js";
 interface returnInsertData {
   query: string;
   values: Array<string | number>;
 }
 export class InsertAndUpdateData {
-  static insertOne(
-    tableName: string,
-    data: inputData,
-    dataTypes: DataTypesInput,
-  ): returnInsertData {
-    typesAndOptions.objectTypesCheckAndColumnName(
-      data as { [key: string]: string | number },
-      dataTypes,
-    );
+  static insertOne(tableName: string, data: inputData): returnInsertData {
     const columns = Object.keys(data);
     const values = Object.values(data);
     const columnsString = columns.join(", ");
@@ -21,14 +12,9 @@ export class InsertAndUpdateData {
     const query = `INSERT INTO ${tableName}(${columnsString}) VALUES(${valuesString})`;
     return { query, values };
   }
-  static insertMany(
-    tableName: string,
-    data: inputData[],
-    dataTypes: DataTypesInput,
-  ): returnInsertData {
+  static insertMany(tableName: string, data: inputData[]): returnInsertData {
     const values: Array<string | number> = [];
     for (const el of data) {
-      typesAndOptions.objectTypesCheckAndColumnName(el, dataTypes);
       values.push(...Object.values(el));
     }
     const columns: Array<string> = Object.keys(data[0]);
@@ -37,7 +23,9 @@ export class InsertAndUpdateData {
     for (let i = 0; i < data.length; i++) {
       columnsToProvide.push(`(${columns.map(() => "?").join(", ")})`);
     }
-    const query = `INSERT INTO ${tableName}(${columnString}) VALUES${columnsToProvide.join(", ")}`;
+    const query = `INSERT INTO ${tableName}(${columnString}) VALUES${columnsToProvide.join(
+      ", "
+    )}`;
     return { query, values };
   }
 }

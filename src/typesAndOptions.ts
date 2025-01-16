@@ -9,7 +9,7 @@ interface SqlOptions {
     columnname: string,
     foreigntable: string,
     foreigncolumn: string,
-    action: "set null" | "set default" | "restrict" | "no action" | "cascade"
+    action: "set null" | "set default" | "restrict" | "no action" | "cascade",
   ): string;
   setdefault(values: string | number): string;
   setcheck(sqlexpression: string): string;
@@ -47,12 +47,12 @@ export class typesAndOptions {
           | "set default"
           | "restrict"
           | "no action"
-          | "cascade"
+          | "cascade",
       ): string => {
         return `!Foreign key (${columnname}) references ${foreigntable}(${foreigncolumn}) on update ${action} on delete ${action}!`;
       },
       setdefault: (values: string | number): string => {
-        return `default ${values}`;
+        return `default '${values}'`;
       },
       setcheck: (sqlExpression: string): string => {
         return `check (${sqlExpression})`;
@@ -82,16 +82,16 @@ export class typesAndOptions {
   }
   static objectTypesCheckAndColumnName(
     data: inputData,
-    dataTypes: DataTypesInput
+    dataTypes: DataTypesInput,
   ): void {
     for (const [columnName, columnValue] of Object.entries(data)) {
       const typeResult = this.typeChecking(
         columnValue,
-        dataTypes[columnName].type
+        dataTypes[columnName].type,
       );
       if (!typeResult) {
         console.error(
-          `The value ${columnValue} is not of type ${dataTypes[columnName].type}`
+          `The value ${columnValue} is not of type ${dataTypes[columnName].type}`,
         );
         process.exit(1);
       }

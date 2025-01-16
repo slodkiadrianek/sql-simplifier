@@ -9,11 +9,11 @@ describe("Go build select test", () => {
   it("find matching columns check", () => {
     const result = QueryFunctions.findMatchingColumns(
       dataFindMatchingColumns,
-      dataTypesToCheckGO
+      dataTypesToCheckGO,
     );
     assert.equal(
       result.join(","),
-      ["int", "float", "datetime", "text"].join(",")
+      ["int", "float", "datetime", "text"].join(","),
     );
   });
   it("build select with empty object check", () => {
@@ -23,21 +23,21 @@ describe("Go build select test", () => {
   it("build select with one property check", () => {
     const result = QueryFunctions.buildSelect(
       { float: true },
-      dataFindMatchingColumns
+      dataFindMatchingColumns,
     );
     assert.equal(result, "   float , ");
   });
   it("build select with more properties check", () => {
     const result = QueryFunctions.buildSelect(
       { float: true, int: true },
-      dataFindMatchingColumns
+      dataFindMatchingColumns,
     );
     assert.equal(result, "   float,int , ");
   });
   it("build select with table name property check", () => {
     const result = QueryFunctions.buildSelect(
       { "types.float": true },
-      dataFindMatchingColumns
+      dataFindMatchingColumns,
     );
     assert.equal(result, "   types.float , ");
   });

@@ -18,7 +18,7 @@ interface returnBuildQueryConditions {
 export class QueryFunctions {
   static findMatchingColumns(
     availableColumns: string[],
-    data: object
+    data: object,
   ): string[] {
     const matchingColumns = [];
     for (const [columnName, columnValues] of Object.entries(data)) {
@@ -36,19 +36,19 @@ export class QueryFunctions {
   }
   static buildSelect(
     data: inputSelectdata,
-    availableColumns: string[]
+    availableColumns: string[],
   ): string {
     let distinctColumn = "";
     let countColumnsString = "";
     const commonColumns = QueryFunctions.findMatchingColumns(
       availableColumns,
-      data
+      data,
     ).join(",");
 
     if (typeof data.distinct === "object" && data.distinct !== null) {
       distinctColumn = QueryFunctions.findMatchingColumns(
         availableColumns,
-        data.distinct
+        data.distinct,
       )[0];
       if (distinctColumn.length > 0) {
         distinctColumn = `DISTINCT ${distinctColumn}`;
@@ -59,7 +59,7 @@ export class QueryFunctions {
     if (typeof data.count === "object" && data.count !== null) {
       let countColumns = QueryFunctions.findMatchingColumns(
         availableColumns,
-        data.count
+        data.count,
       );
       countColumns = countColumns.map((el: string): string => `COUNT(${el})`);
       countColumnsString = countColumns.join(", ");
@@ -71,7 +71,7 @@ export class QueryFunctions {
     return selectQuery;
   }
   static buildQueryConditions(
-    data: InputDataCondition
+    data: InputDataCondition,
   ): returnBuildQueryConditions {
     const resultArray: string[] = [];
     const valuesArray: valuesArrayType = [];
@@ -136,20 +136,22 @@ export class QueryFunctions {
     return { queryString: andQueryString, queryValues: andQuery.values };
   }
   static between(
-    data: Array<string & Array<number | string>>
+    data: Array<string & Array<number | string>>,
   ): returnOptionsData {
     const columnName: string = data[0];
-    const betweenQueryValues: { [key: string]: string } = {};
+    const betweenQueryValues: Array<{ [key: string]: string | number }> = [];
     for (let i = 0; i < data[1].length; i++) {
       if (typeof data[1][i] === "string") {
         data[1][i] = `'${data[1][i]}'`;
       }
-      betweenQueryValues[columnName] = data[1][i];
+      const object: { [key: string]: string | number } = {};
+      object[columnName] = data[1][i];
+      betweenQueryValues.push(object);
     }
     const betweenQueryString = ` ${columnName} BETWEEN ? AND ? `;
     return {
       queryString: betweenQueryString,
-      queryValues: [betweenQueryValues],
+      queryValues: betweenQueryValues,
     };
   }
   static in(data: Array<string & Array<string | number>>): returnOptionsData {
@@ -171,7 +173,7 @@ export class QueryFunctions {
     };
   }
   static notIn(
-    data: Array<string & Array<string | number>>
+    data: Array<string & Array<string | number>>,
   ): returnOptionsData {
     const notInQueryString = this.in(data);
     return {
@@ -180,16 +182,16 @@ export class QueryFunctions {
     };
   }
   static like(data: { [key: string]: string }): string {
+    const likeData: string[] = [];
     if (typeof data === "object" && data !== null) {
       for (const [columnName, columnValues] of Object.entries(data)) {
-        console.log(columnName, columnValues);
-        return `${columnName} LIKE '${columnValues}'`;
+        likeData.push(`${columnName} LIKE '${columnValues}'`);
       }
+      return likeData.join(" AND ");
     } else {
       console.error("Wrong data provided");
       process.exit(1);
     }
-    return "";
   }
 
   static notLike(data: { [key: string]: string }): string {
@@ -197,13 +199,13 @@ export class QueryFunctions {
     return result.replace("LIKE", "NOT LIKE");
   }
   static notBetween(
-    data: Array<string & Array<string | number>>
+    data: Array<string & Array<string | number>>,
   ): returnOptionsData {
     const notBetweenQueryString = this.between(data);
     return {
       queryString: notBetweenQueryString.queryString.replace(
         "BETWEEN",
-        "NOT BETWEEN"
+        "NOT BETWEEN",
       ),
       queryValues: notBetweenQueryString.queryValues,
     };
@@ -254,7 +256,7 @@ export class QueryFunctions {
       where?: whereHavingType;
       having?: whereHavingType;
     },
-    type: "where" | "having"
+    type: "where" | "having",
   ): returnOptionsData {
     const resultArray: string[] = [];
     const valuesArray: valuesArrayType = [];
@@ -301,7 +303,7 @@ export class QueryFunctions {
           gt: InputDataCondition;
         }
       ).gt;
-      const result = this.greaterThanOrEqual(greaterThanCondition);
+      const result = this.greaterThan(greaterThanCondition);
       resultArray.push(result.queryString);
       valuesArray.push(...result.queryValues);
     } else if ("lt" in data[type]) {

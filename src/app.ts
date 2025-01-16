@@ -6,7 +6,7 @@ import { QueryFunctions } from "./queryFunctions.js";
 import { InsertAndUpdateData } from "./insertData.js";
 import { typesAndOptions } from "./typesAndOptions.js";
 import { Relations } from "./relations.js";
-// import { database } from "./test.js";
+import { DatabaseSync } from "node:sqlite";
 
 type WhereClause = { [key: string]: string | number | object };
 type OrderByClause = { [key: string]: "ASC" | "DESC" };
@@ -70,8 +70,10 @@ export class SqlSimplifier {
     "limit",
     "notLike",
   ];
-
-  constructor(public readonly pathToDatabase: string) {}
+  static database: DatabaseSync;
+  constructor(public readonly pathToDatabase: string) {
+    SqlSimplifier.database = new DatabaseSync(pathToDatabase);
+  }
 
   // Add type compatibility
   deleteMany(data: DeleteType): void {
@@ -80,7 +82,7 @@ export class SqlSimplifier {
     const query = `DELETE FROM ${this.tableName} ${
       whereQuery.queryString === "" ? "" : `WHERE ${whereQuery.queryString}`
     } ${optionsQuery !== "" ? optionsQuery : ""}`;
-    database.prepare(query).all();
+    SqlSimplifier.database.prepare(query).all();
   }
 
   // Add type compatibility
@@ -96,7 +98,7 @@ export class SqlSimplifier {
     } ${orderByQuery !== "" ? orderByQuery : ""} LIMIT 1 ${
       skipQuery !== undefined ? skipQuery : ""
     }`;
-    database.prepare(query).all();
+    SqlSimplifier.database.prepare(query).all();
   }
 
   updateOne(data: UpdateType): void {
@@ -104,7 +106,7 @@ export class SqlSimplifier {
     const availableColumns: string[] = Object.keys(this.columns);
     const result = QueryFunctions.findMatchingColumns(
       availableColumns,
-      data
+      data,
     )[0];
     const whereQuery = QueryFunctions.buildWhere(data);
     if (typeof data.skip === "number") {
@@ -118,7 +120,7 @@ export class SqlSimplifier {
     } ${orderByQuery !== "" ? orderByQuery : ""} LIMIT 1 ${
       skipQuery !== undefined ? skipQuery : ""
     }`;
-    database.prepare(query).all();
+    SqlSimplifier.database.prepare(query).all();
   }
 
   updateMany(data: UpdateType): void {
@@ -129,7 +131,7 @@ export class SqlSimplifier {
     const columnsToReplaceWithValues: string[] = [];
     for (const el of result) {
       columnsToReplaceWithValues.push(
-        `${el}=${typeof data[el] === "string" ? `'${data[el]}'` : data[el]}`
+        `${el}=${typeof data[el] === "string" ? `'${data[el]}'` : data[el]}`,
       );
     }
     const query = `UPDATE ${
@@ -137,21 +139,17 @@ export class SqlSimplifier {
     } SET ${columnsToReplaceWithValues.join(", ")} ${
       whereQuery.queryString === "" ? "" : `WHERE ${whereQuery.queryString}`
     } ${optionsQuery !== "" ? optionsQuery : ""}`;
-    database.prepare(query).all();
+    SqlSimplifier.database.prepare(query).all();
   }
 
   insertOne(data: Record<string, string | number>): void {
     const dataTypes = this.columns;
     typesAndOptions.objectTypesCheckAndColumnName(
       data as { [key: string]: string | number },
-      dataTypes
+      dataTypes,
     );
-    const result = InsertAndUpdateData.insertOne(
-      this.tableName,
-      data,
-      dataTypes
-    );
-    database.prepare(result.query).run(...result.values);
+    const result = InsertAndUpdateData.insertOne(this.tableName, data);
+    SqlSimplifier.database.prepare(result.query).run(...result.values);
   }
 
   insertMany(data: Array<Record<string, string | number>>): void {
@@ -159,15 +157,11 @@ export class SqlSimplifier {
     for (const el of data) {
       typesAndOptions.objectTypesCheckAndColumnName(
         el as { [key: string]: string | number },
-        dataTypes
+        dataTypes,
       );
     }
-    const result = InsertAndUpdateData.insertMany(
-      this.tableName,
-      data,
-      dataTypes
-    );
-    database.prepare(result.query).run(...result.values);
+    const result = InsertAndUpdateData.insertMany(this.tableName, data);
+    SqlSimplifier.database.prepare(result.query).run(...result.values);
   }
 
   findMany(data: findType): object {
@@ -277,7 +271,7 @@ export class SqlSimplifier {
       typesAndOptions.objectTypesCheckAndColumnName(el, dataTypes);
     }
     console.log(query);
-    const result = database.prepare(query).all();
+    const result = SqlSimplifier.database.prepare(query).all();
     return result;
   }
 
@@ -376,13 +370,13 @@ export class SqlSimplifier {
     }
 
     console.log(query);
-    const result = database.prepare(query).all();
+    const result = SqlSimplifier.database.prepare(query).all();
     return result;
   }
 
   createTable(
     tableName: string,
-    columns: Record<string, { type: string; tableOptions: string }>
+    columns: Record<string, { type: string; tableOptions: string }>,
   ): {
     columns: { type: string; tableOptions: string };
     insertOne: (data: { [key: string]: string | number }) => void;
@@ -413,7 +407,7 @@ export class SqlSimplifier {
         }
       }
       query += `${columnName} ${columnProperties.type} ${splittedOptions.join(
-        " "
+        " ",
       )}, `;
     }
     query += foreignKeys.join(",");
@@ -421,7 +415,9 @@ export class SqlSimplifier {
       query += "  ";
     }
     query = query.slice(0, -2) + ")";
-    database.exec(query);
+    console.log(query);
+
+    SqlSimplifier.database.exec(query);
     this[tableName] = {
       tableName,
       columns: {
@@ -452,7 +448,7 @@ export class SqlSimplifier {
     const tableInfoQuery = `
               PRAGMA table_info(${tableName})
               `;
-    const result = database.prepare(tableInfoQuery);
+    const result = SqlSimplifier.database.prepare(tableInfoQuery);
     return result.all();
   }
 }

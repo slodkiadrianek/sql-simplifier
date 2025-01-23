@@ -142,17 +142,19 @@ export class SqlSimplifier {
     SqlSimplifier.database.prepare(query).all();
   }
 
-  insertOne(data: Record<string, string | number>): void {
+  insertOne(data: Record<string, string | number>): string {
     const dataTypes = this.columns;
     typesAndOptions.objectTypesCheckAndColumnName(
       data as { [key: string]: string | number },
       dataTypes,
     );
     const result = InsertAndUpdateData.insertOne(this.tableName, data);
+    console.log(result.query, result.values);
     SqlSimplifier.database.prepare(result.query).run(...result.values);
+    return "Data inserted";
   }
 
-  insertMany(data: Array<Record<string, string | number>>): void {
+  insertMany(data: Array<Record<string, string | number>>): string {
     const dataTypes = this.columns;
     for (const el of data) {
       typesAndOptions.objectTypesCheckAndColumnName(
@@ -162,6 +164,7 @@ export class SqlSimplifier {
     }
     const result = InsertAndUpdateData.insertMany(this.tableName, data);
     SqlSimplifier.database.prepare(result.query).run(...result.values);
+    return "Data inserted";
   }
 
   findMany(data: findType): object {
@@ -379,8 +382,8 @@ export class SqlSimplifier {
     columns: Record<string, { type: string; tableOptions: string }>,
   ): {
     columns: { type: string; tableOptions: string };
-    insertOne: (data: { [key: string]: string | number }) => void;
-    insertMany: (data: { [key: string]: string | number }[]) => void;
+    insertOne: (data: { [key: string]: string | number }) => string;
+    insertMany: (data: { [key: string]: string | number }[]) => string;
     findMany: (data: findType) => object;
     findOne: (data: findType) => object;
     updateOne: (data: UpdateType) => void;
@@ -396,7 +399,9 @@ export class SqlSimplifier {
         return process.exit(1);
       }
       const splittedOptions: string[] =
-        columnProperties.tableOptions.split("!");
+        columnProperties.tableOptions.split("?");
+      console.log(splittedOptions);
+
       if (columnProperties.tableOptions.includes("Foreign")) {
         for (let i = 0; i < splittedOptions.length; i++) {
           if (splittedOptions[i].includes("Foreign")) {

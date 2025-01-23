@@ -24,7 +24,7 @@ export class InsertAndUpdateData {
       columnsToProvide.push(`(${columns.map(() => "?").join(", ")})`);
     }
     const query = `INSERT INTO ${tableName}(${columnString}) VALUES${columnsToProvide.join(
-      ", "
+      ", ",
     )}`;
     return { query, values };
   }

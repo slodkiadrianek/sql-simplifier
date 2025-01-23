@@ -49,12 +49,14 @@ export class typesAndOptions {
           | "no action"
           | "cascade",
       ): string => {
-        return `!Foreign key (${columnname}) references ${foreigntable}(${foreigncolumn}) on update ${action} on delete ${action}!`;
+        return `?Foreign key (${columnname}) references ${foreigntable}(${foreigncolumn}) on update ${action} on delete ${action}?`;
       },
       setdefault: (values: string | number): string => {
         return `default '${values}'`;
       },
       setcheck: (sqlExpression: string): string => {
+        console.log(sqlExpression);
+
         return `check (${sqlExpression})`;
       },
     };

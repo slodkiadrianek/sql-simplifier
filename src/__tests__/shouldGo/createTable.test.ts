@@ -1,5 +1,4 @@
 import { describe } from "node:test";
-// import assert from "node:assert";
 import { SqlSimplifier } from "../../app.js";
 import { typesAndOptions } from "../../typesAndOptions.js";
 import assert from "assert";
@@ -59,7 +58,7 @@ describe("create table tests", () => {
       supplierGroupId: {
         type: "INTEGER",
         tableOptions:
-          "!Foreign key (supplierGroupId) references suppliersGroups(id) on update cascade on delete cascade!",
+          "?Foreign key (supplierGroupId) references suppliersGroups(id) on update cascade on delete cascade?",
       },
       createdAt: {
         type: "DATETIME",

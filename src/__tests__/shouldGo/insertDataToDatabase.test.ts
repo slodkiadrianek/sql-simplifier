@@ -1,14 +1,11 @@
 import assert from "assert";
-import { describe, it, after } from "node:test";
+import { describe, it } from "node:test";
 import { SqlSimplifier } from "../../app.js";
 import { typesAndOptions } from "../../typesAndOptions.js";
-import { unlink } from "fs/promises";
-describe("Insert data to database", (): void => {
-  const pathToDatabase = "./database.db";
+describe("Insert data to database", async (): Promise<void> => {
+  const pathToDatabase = ":memory:";
   const db = new SqlSimplifier(pathToDatabase);
-  after(async () => {
-    await unlink("./database.db");
-  });
+
   const suppliersGroups = db.createTable("suppliersGroups", {
     id: {
       type: typesAndOptions.types.INT,
@@ -43,7 +40,7 @@ describe("Insert data to database", (): void => {
     },
     createdAt: {
       type: typesAndOptions.types.DATETIME,
-      tableOptions: typesAndOptions.options.setdefault("2025-01-09T12:00:00Z"),
+      tableOptions: typesAndOptions.options.setdefault("2025-01-09T11:00:00Z"),
     },
   });
   it("InsertOne table without foreign key", (): void => {

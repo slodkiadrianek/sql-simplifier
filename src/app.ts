@@ -32,7 +32,7 @@ type DeleteType = {
 } & {
   where?: WhereClause;
 } & {
-  orderBy: OrderByClause[];
+  orderBy?: OrderByClause[];
 };
 
 type UpdateType = {
@@ -76,32 +76,36 @@ export class SqlSimplifier {
   }
 
   // Add type compatibility
-  deleteMany(data: DeleteType): void {
-    const whereQuery = QueryFunctions.buildWhere(data);
-    const optionsQuery = QueryOptions.buildQueryOptions(data);
-    const query = `DELETE FROM ${this.tableName} ${
-      whereQuery.queryString === "" ? "" : `WHERE ${whereQuery.queryString}`
-    } ${optionsQuery !== "" ? optionsQuery : ""}`;
-    SqlSimplifier.database.prepare(query).all();
-  }
 
   // Add type compatibility
-  deleteOne(data: DeleteType): void {
+  delete(data: DeleteType): string {
     let skipQuery: string = "";
     const whereQuery = QueryFunctions.buildWhere(data);
     if (typeof data.skip === "number") {
       skipQuery = QueryOptions.setSkip(data.skip);
     }
-    const orderByQuery = QueryOptions.setOrderBy(data.orderBy);
+    let orderByQuery = "";
+    if (typeof data.orderBy === "object") {
+      for (const el of data.orderBy) {
+        for (const columnValue of Object.values(el)) {
+          if (columnValue !== "ASC" && columnValue !== "DESC") {
+            console.error(`Invalid order by direction ${columnValue}`);
+            return process.exit(1);
+          }
+        }
+      }
+      orderByQuery = QueryOptions.setOrderBy(data.orderBy);
+    }
     const query = `DELETE FROM ${this.tableName} ${
       whereQuery.queryString === "" ? "" : `WHERE ${whereQuery.queryString}`
-    } ${orderByQuery !== "" ? orderByQuery : ""} LIMIT 1 ${
+    } ${orderByQuery !== "" ? orderByQuery : ""}  ${
       skipQuery !== undefined ? skipQuery : ""
     }`;
     SqlSimplifier.database.prepare(query).all();
+    return "Deleted Succesfully";
   }
 
-  updateOne(data: UpdateType): void {
+  update(data: UpdateType): string {
     let skipQuery: string = "";
     const availableColumns: string[] = Object.keys(this.columns);
     const result = QueryFunctions.findMatchingColumns(
@@ -112,34 +116,30 @@ export class SqlSimplifier {
     if (typeof data.skip === "number") {
       skipQuery = QueryOptions.setSkip(data.skip);
     }
-    const orderByQuery = QueryOptions.setOrderBy(data.orderBy);
+
+    let orderByQuery = "";
+    if (typeof data.orderBy === "object") {
+      for (const el of data.orderBy) {
+        for (const columnValue of Object.values(el)) {
+          if (columnValue !== "ASC" && columnValue !== "DESC") {
+            console.error(`Invalid order by direction ${columnValue}`);
+            return process.exit(1);
+          }
+        }
+      }
+      orderByQuery = QueryOptions.setOrderBy(data.orderBy);
+    }
     const query = `UPDATE ${this.tableName} SET ${result}=${
       typeof data[result] === "string" ? `'${data[result]}'` : data[result]
     } ${
       whereQuery.queryString === "" ? "" : `WHERE ${whereQuery.queryString}`
-    } ${orderByQuery !== "" ? orderByQuery : ""} LIMIT 1 ${
+    } ${orderByQuery !== "" ? orderByQuery : ""}  ${
       skipQuery !== undefined ? skipQuery : ""
     }`;
-    SqlSimplifier.database.prepare(query).all();
-  }
+    console.log(query);
 
-  updateMany(data: UpdateType): void {
-    const availableColumns: string[] = Object.keys(this.columns);
-    const result = QueryFunctions.findMatchingColumns(availableColumns, data);
-    const whereQuery = QueryFunctions.buildWhere(data);
-    const optionsQuery = QueryOptions.buildQueryOptions(data);
-    const columnsToReplaceWithValues: string[] = [];
-    for (const el of result) {
-      columnsToReplaceWithValues.push(
-        `${el}=${typeof data[el] === "string" ? `'${data[el]}'` : data[el]}`,
-      );
-    }
-    const query = `UPDATE ${
-      this.tableName
-    } SET ${columnsToReplaceWithValues.join(", ")} ${
-      whereQuery.queryString === "" ? "" : `WHERE ${whereQuery.queryString}`
-    } ${optionsQuery !== "" ? optionsQuery : ""}`;
     SqlSimplifier.database.prepare(query).all();
+    return "Updated Succesfully";
   }
 
   insertOne(data: Record<string, string | number>): string {
@@ -386,10 +386,8 @@ export class SqlSimplifier {
     insertMany: (data: { [key: string]: string | number }[]) => string;
     findMany: (data: findType) => object;
     findOne: (data: findType) => object;
-    updateOne: (data: UpdateType) => void;
-    updateMany: (data: UpdateType) => void;
-    deleteOne: (data: DeleteType) => void;
-    deleteMany: (data: DeleteType) => void;
+    update: (data: UpdateType) => string;
+    delete: (data: DeleteType) => string;
   } {
     let query: string = `CREATE TABLE IF NOT EXISTS ${tableName} (`;
     const foreignKeys = [];
@@ -432,20 +430,16 @@ export class SqlSimplifier {
       insertMany: this.insertMany,
       findMany: this.findMany,
       findOne: this.findOne,
-      updateOne: this.updateOne,
-      updateMany: this.updateMany,
-      deleteMany: this.deleteMany,
-      deleteOne: this.deleteOne,
+      update: this.update,
+      delete: this.delete,
     };
 
     this[tableName].findMany.bind(this[tableName]);
     this[tableName].findOne.bind(this[tableName]);
     this[tableName].insertOne.bind(this[tableName]);
     this[tableName].insertMany.bind(this[tableName]);
-    this[tableName].updateMany.bind(this[tableName]);
-    this[tableName].updateOne.bind(this[tableName]);
-    this[tableName].deleteMany.bind(this[tableName]);
-    this[tableName].deleteOne.bind(this[tableName]);
+    this[tableName].update.bind(this[tableName]);
+    this[tableName].delete.bind(this[tableName]);
     return this[tableName];
   }
 
